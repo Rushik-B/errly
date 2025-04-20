@@ -3,7 +3,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3?dts";
 import { corsHeaders } from "../_shared/cors.ts";
-import twilio from 'https://esm.sh/twilio@4.20.1';
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts"; // For Basic Auth
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -31,12 +31,16 @@ interface ProjectUserDetails {
 const RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
 
 serve(async (req: Request): Promise<Response> => {
+  console.log("[send-error-notification] Handler invoked, Method:", req.method);
+
   /* CORS pre‑flight -------------------------------------------------- */
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    console.log("[send-error-notification] Inside try block, before req.json()");
+
     /* Supabase client ------------------------------------------------ */
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -44,8 +48,11 @@ serve(async (req: Request): Promise<Response> => {
       { auth: { persistSession: false } },
     );
 
+    console.log("[send-error-notification] Attempting req.json() parse...");
     /* Parse payload -------------------------------------------------- */
     const payload = await req.json() as Record<string, unknown>;
+    console.log("[send-error-notification] req.json() parsed successfully, payload:", payload);
+
     const newError = (payload.record ?? payload.new) as ErrorPayload;
 
     if (!newError?.project_id || !newError?.message) {
@@ -56,57 +63,97 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     /* Project & user lookup ----------------------------------------- */
-    const { data: projectDetails, error: fetchError } = await supabaseAdmin
+    console.log("[send-error-notification] Looking up project...");
+    // Fetch project details first
+    const { data: projectData, error: projectError } = await supabaseAdmin
       .from("projects")
-      .select(`
-        user_id,
-        name,
-        last_notified_at,
-        users ( phone_number )
-      `)
+      .select(`user_id, name, last_notified_at`)
       .eq("id", newError.project_id)
-      .single<ProjectUserDetails>();
+      .single();
 
-    if (fetchError || !projectDetails) {
+    // Log project query result
+    if (projectError) {
+      console.error("[send-error-notification] Error fetching project:", projectError.message);
       return new Response(
-        JSON.stringify({ message: "Project details not found, skipping notification." }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "Failed to fetch project details", details: projectError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    if (!projectData) {
+      console.warn("[send-error-notification] Project not found for ID:", newError.project_id);
+      return new Response(
+        JSON.stringify({ message: "Project details not found, skipping notification." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Not a server error
+      );
+    }
+    console.log("[send-error-notification] Project found:", projectData);
 
-    const userPhoneNumber = projectDetails.users?.phone_number;
-    const lastNotifiedAt  = projectDetails.projects.last_notified_at;
-    const projectName     = projectDetails.projects.name;
+    // Now fetch user details using the supabase_auth_id (which matches projectData.user_id)
+    console.log(`[send-error-notification] Looking up user profile for auth ID: ${projectData.user_id}...`);
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from("users")
+      .select(`phone_number`)
+      .eq("supabase_auth_id", projectData.user_id) // Match on the link to auth.users
+      .single();
+    
+    // Log user query result
+    if (userError) {
+      console.error(`[send-error-notification] Error fetching user profile for auth ID ${projectData.user_id}:`, userError.message);
+      // Decide if this is fatal or just skip notification
+       return new Response(
+         JSON.stringify({ message: "User profile lookup failed, skipping notification.", details: userError.message }),
+         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Not necessarily a server error
+       );
+    }
+    if (!userData) {
+        console.warn(`[send-error-notification] User profile not found for auth ID: ${projectData.user_id}`);
+         return new Response(
+           JSON.stringify({ message: "User profile not found, skipping notification." }),
+           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Not a server error
+         );
+    }
+    console.log("[send-error-notification] User profile found:", userData);
 
+    // Combine results (adjust if needed)
+    const userPhoneNumber = userData.phone_number;
+    const lastNotifiedAt  = projectData.last_notified_at;
+    const projectName     = projectData.name;
+
+    console.log("[send-error-notification] Checking phone number...");
     if (!userPhoneNumber) {
+      console.warn("[send-error-notification] No phone number configured for user.");
       return new Response(
         JSON.stringify({ message: "No phone number configured for user." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    console.log("[send-error-notification] Performing rate limit check...");
     /* Rate‑limit ----------------------------------------------------- */
     if (lastNotifiedAt &&
         Date.now() - new Date(lastNotifiedAt).getTime() < RATE_LIMIT_MS) {
+      console.warn(`[send-error-notification] Rate limit hit for project ${newError.project_id}. Last notified: ${lastNotifiedAt}`);
       return new Response(
         JSON.stringify({ message: "Rate limit hit, notification skipped." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    console.log("[send-error-notification] Rate limit check passed.");
 
+    console.log("[send-error-notification] Checking Twilio env vars...");
     /* Twilio setup --------------------------------------------------- */
     const accountSid        = Deno.env.get("TWILIO_ACCOUNT_SID");
     const authToken         = Deno.env.get("TWILIO_AUTH_TOKEN");
     const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
 
     if (!accountSid || !authToken || !twilioPhoneNumber) {
+      console.error('[send-error-notification] Twilio environment variables are not set.');
       return new Response(
         JSON.stringify({ error: "Twilio configuration missing server‑side." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
-    const twilioClient = twilio(accountSid, authToken);
+    console.log("[send-error-notification] Twilio env vars seem present. Preparing fetch...");
 
     const truncated = newError.message.slice(0, 100);
     const ellipsis  = newError.message.length > 100 ? "…" : "";
@@ -114,13 +161,43 @@ serve(async (req: Request): Promise<Response> => {
       `Errly Alert: New error received for project "${projectName}". ` +
       `Message: ${truncated}${ellipsis}`;
 
-    /* Send SMS ------------------------------------------------------- */
+    /* Send SMS using fetch ------------------------------------------ */
+    const twilioApiUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+    const basicAuthHeader = `Basic ${base64Encode(`${accountSid}:${authToken}`)}`;
+
+    // Twilio API expects form-urlencoded data
+    const requestBody = new URLSearchParams({
+      To: userPhoneNumber,
+      From: twilioPhoneNumber,
+      Body: smsBody,
+    });
+
     try {
-      await twilioClient.messages.create({
-        body: smsBody,
-        from: twilioPhoneNumber,
-        to:   userPhoneNumber,
+      const twilioResponse = await fetch(twilioApiUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": basicAuthHeader,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: requestBody.toString(),
       });
+
+      if (!twilioResponse.ok) {
+        // Attempt to parse error details from Twilio
+        let errorDetails = `Status: ${twilioResponse.status}`; 
+        try {
+            const errorJson = await twilioResponse.json();
+            errorDetails += `, Body: ${JSON.stringify(errorJson)}`;
+        } catch (_) {
+            // Ignore if response body is not JSON
+            errorDetails += `, Body: ${await twilioResponse.text()}`;
+        }
+        throw new Error(`Twilio API request failed. ${errorDetails}`);
+      }
+
+      // Optional: Log success details from Twilio response if needed
+      // const responseJson = await twilioResponse.json();
+      // console.log("Twilio response:", responseJson);
 
       /* Update last_notified_at ------------------------------------- */
       await supabaseAdmin
@@ -132,13 +209,10 @@ serve(async (req: Request): Promise<Response> => {
         JSON.stringify({ message: "Notification sent successfully." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
-    } catch (twilioError) {
-      const err = twilioError as Error;
+    } catch (error) {
+      const err = error as Error;
       return new Response(
-        JSON.stringify({
-          error:   "Failed to send notification via Twilio.",
-          details: err.message,
-        }),
+        JSON.stringify({ error: err.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
