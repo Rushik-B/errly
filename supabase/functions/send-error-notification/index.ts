@@ -31,16 +31,12 @@ interface ProjectUserDetails {
 const RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
 
 serve(async (req: Request): Promise<Response> => {
-  console.log("[send-error-notification] Handler invoked, Method:", req.method);
-
   /* CORS pre‑flight -------------------------------------------------- */
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    console.log("[send-error-notification] Inside try block, before req.json()");
-
     /* Supabase client ------------------------------------------------ */
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -48,10 +44,8 @@ serve(async (req: Request): Promise<Response> => {
       { auth: { persistSession: false } },
     );
 
-    console.log("[send-error-notification] Attempting req.json() parse...");
     /* Parse payload -------------------------------------------------- */
     const payload = await req.json() as Record<string, unknown>;
-    console.log("[send-error-notification] req.json() parsed successfully, payload:", payload);
 
     const newError = (payload.record ?? payload.new) as ErrorPayload;
 
@@ -63,7 +57,6 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     /* Project & user lookup ----------------------------------------- */
-    console.log("[send-error-notification] Looking up project...");
     // Fetch project details first
     const { data: projectData, error: projectError } = await supabaseAdmin
       .from("projects")
@@ -86,10 +79,8 @@ serve(async (req: Request): Promise<Response> => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Not a server error
       );
     }
-    console.log("[send-error-notification] Project found:", projectData);
 
     // Now fetch user details using the supabase_auth_id (which matches projectData.user_id)
-    console.log(`[send-error-notification] Looking up user profile for auth ID: ${projectData.user_id}...`);
     const { data: userData, error: userError } = await supabaseAdmin
       .from("users")
       .select(`phone_number`)
@@ -112,14 +103,12 @@ serve(async (req: Request): Promise<Response> => {
            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Not a server error
          );
     }
-    console.log("[send-error-notification] User profile found:", userData);
 
     // Combine results (adjust if needed)
     const userPhoneNumber = userData.phone_number;
     const lastNotifiedAt  = projectData.last_notified_at;
     const projectName     = projectData.name;
 
-    console.log("[send-error-notification] Checking phone number...");
     if (!userPhoneNumber) {
       console.warn("[send-error-notification] No phone number configured for user.");
       return new Response(
@@ -128,7 +117,6 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("[send-error-notification] Performing rate limit check...");
     /* Rate‑limit ----------------------------------------------------- */
     if (lastNotifiedAt &&
         Date.now() - new Date(lastNotifiedAt).getTime() < RATE_LIMIT_MS) {
@@ -138,9 +126,7 @@ serve(async (req: Request): Promise<Response> => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-    console.log("[send-error-notification] Rate limit check passed.");
 
-    console.log("[send-error-notification] Checking Twilio env vars...");
     /* Twilio setup --------------------------------------------------- */
     const accountSid        = Deno.env.get("TWILIO_ACCOUNT_SID");
     const authToken         = Deno.env.get("TWILIO_AUTH_TOKEN");
@@ -153,7 +139,6 @@ serve(async (req: Request): Promise<Response> => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-    console.log("[send-error-notification] Twilio env vars seem present. Preparing fetch...");
 
     const truncated = newError.message.slice(0, 100);
     const ellipsis  = newError.message.length > 100 ? "…" : "";
@@ -195,10 +180,6 @@ serve(async (req: Request): Promise<Response> => {
         throw new Error(`Twilio API request failed. ${errorDetails}`);
       }
 
-      // Optional: Log success details from Twilio response if needed
-      // const responseJson = await twilioResponse.json();
-      // console.log("Twilio response:", responseJson);
-
       /* Update last_notified_at ------------------------------------- */
       await supabaseAdmin
         .from("projects")
@@ -211,6 +192,7 @@ serve(async (req: Request): Promise<Response> => {
       );
     } catch (error) {
       const err = error as Error;
+      console.error("[send-error-notification] Error during Twilio fetch or subsequent processing:", err.message);
       return new Response(
         JSON.stringify({ error: err.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
