@@ -187,9 +187,14 @@ export default function Dashboard() {
         
         <div className={styles.headerRight}>
           {user && (
-            <span className={styles.userEmail}>
-              {user.email}
-            </span>
+            <>
+              <span className={styles.userEmail}>
+                {user.email}
+              </span>
+              <Link href="/dashboard/profile" className={styles.profileLink}>
+                Profile
+              </Link>
+            </>
           )}
           <LogoutButton />
         </div>

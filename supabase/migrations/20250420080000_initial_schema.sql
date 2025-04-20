@@ -69,9 +69,16 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
+DECLARE
+  phone_number_value text;
 BEGIN
-  INSERT INTO public.users (supabase_auth_id, email)
-  VALUES (NEW.id, NEW.email);
+  -- Extract phone_number from user_metadata if available
+  phone_number_value := (NEW.raw_user_meta_data->>'phone_number')::text;
+  
+  -- Insert new user record with phone number if available
+  INSERT INTO public.users (supabase_auth_id, email, phone_number)
+  VALUES (NEW.id, NEW.email, phone_number_value);
+  
   RETURN NEW;
 END;
 $$;
