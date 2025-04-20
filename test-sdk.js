@@ -7,7 +7,7 @@ async function runTest() {
   console.log('Import successful via package name!');
 
   // --- IMPORTANT: Replace with the actual API Key from your Supabase 'projects' table ---
-  const apiKey = '0dac856c-096a-4243-bfe6-d76e09aa3dc0';
+  const apiKey = 'e8afc368-f5be-428b-9e0b-4fe4ffb701f8';
 
   if (apiKey === 'PASTE_YOUR_API_KEY_HERE') {
     console.error('Please replace PASTE_YOUR_API_KEY_HERE in test-sdk.js with your actual API key.');
@@ -20,8 +20,9 @@ async function runTest() {
   console.log('SDK Initialized and console patched.');
 
   // Trigger an error using the patched console
-  // The original console.error will be called first, then our SDK sends it.
-  console.error('This is a test error sent via console.error -> console.ext');
+  // Add a timestamp to make the message unique each time
+  const timestamp = new Date().toISOString();
+  console.error(`This is a test error sent via console.error -> console.ext [${timestamp}]`);
 
   // Example with an actual Error object:
   // console.error(new Error('This is an actual Error object test.'));

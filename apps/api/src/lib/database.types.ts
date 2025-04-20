@@ -49,6 +49,7 @@ export type Database = {
           api_key: string
           created_at: string
           id: string
+          last_notified_at: string | null
           name: string
           user_id: string
         }
@@ -56,6 +57,7 @@ export type Database = {
           api_key?: string
           created_at?: string
           id?: string
+          last_notified_at?: string | null
           name: string
           user_id: string
         }
@@ -63,18 +65,11 @@ export type Database = {
           api_key?: string
           created_at?: string
           id?: string
+          last_notified_at?: string | null
           name?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "projects_user_id_fkey1"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       users: {
         Row: {
