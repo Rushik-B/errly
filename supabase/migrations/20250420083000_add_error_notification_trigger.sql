@@ -37,8 +37,7 @@ BEGIN
           'Authorization', 'Bearer ' || service_role_key
       )
   )
-  INTO request_id
-  FROM net._http_request;
+  INTO request_id;
 
   -- Check if request was queued successfully (pg_net returns the request id)
   IF request_id IS NULL THEN

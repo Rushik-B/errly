@@ -279,6 +279,7 @@
     "https://esm.sh/supports-color@10.0.0?target=denonext": "4895255248e4ba0cbcce9437003dccf3658b1ac1d1e8eba5225fb8194c454ee1",
     "https://esm.sh/tr46@0.0.3/denonext/tr46.mjs": "5753ec0a99414f4055f0c1f97691100f13d88e48a8443b00aebb90a512785fa2",
     "https://esm.sh/tr46@0.0.3?target=denonext": "19cb9be0f0d418a0c3abb81f2df31f080e9540a04e43b0f699bce1149cba0cbb",
+    "https://esm.sh/twilio@4.20.1": "2151e1a34845e58033d91b3b141e54fd629ae7653d4b1935cb39645a20c67d94",
     "https://esm.sh/twilio@4.20.1/denonext/twilio.mjs": "a710e39f6a63ac01e30e23aad95c4f552efc42c089cf30d1c0d93822947aa269",
     "https://esm.sh/twilio@4.20.1?dts": "2151e1a34845e58033d91b3b141e54fd629ae7653d4b1935cb39645a20c67d94",
     "https://esm.sh/url-parse@1.5.10/denonext/url-parse.mjs": "32deda7590b084ed40e10552c56abf38d46b983dfb25102c3e5a19720385557a",

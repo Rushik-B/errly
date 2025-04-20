@@ -3,7 +3,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3?dts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { Twilio } from "https://esm.sh/twilio@4.20.1?dts";
+import twilio from 'https://esm.sh/twilio@4.20.1';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -28,7 +28,7 @@ interface ProjectUserDetails {
 
 /* ------------------------------------------------------------------ */
 
-const RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+const RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
 
 serve(async (req: Request): Promise<Response> => {
   /* CORS pre‑flight -------------------------------------------------- */
@@ -106,7 +106,7 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    const twilioClient = new Twilio(accountSid, authToken);
+    const twilioClient = twilio(accountSid, authToken);
 
     const truncated = newError.message.slice(0, 100);
     const ellipsis  = newError.message.length > 100 ? "…" : "";
