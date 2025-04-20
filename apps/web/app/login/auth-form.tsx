@@ -8,8 +8,8 @@ import { useRouter } from 'next/navigation'
 import React from 'react'
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
 import type { Value } from 'react-phone-number-input' // Import Value type for state
-import 'react-phone-number-input/style.css' // Import default styles
-import './phone-input-custom.css' // Import custom styles (we'll create this)
+// Removed import 'react-phone-number-input/style.css' 
+// Removed import './phone-input-custom.css' 
 
 export default function AuthForm() {
   const [view, setView] = useState<'sign_in' | 'sign_up'>('sign_in')
@@ -100,38 +100,36 @@ export default function AuthForm() {
 
   if (showCustomForm) {
     return (
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-center">Sign Up for Errly</h2>
+      <div>
+        <h2>Sign Up for Errly</h2>
         
-        {error && <div className="p-3 bg-red-800 rounded text-white text-sm">{error}</div>}
+        {error && <div>{error}</div>}
         
-        <form onSubmit={handleSignUp} className="space-y-4">
+        <form onSubmit={handleSignUp}>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300">Email</label>
+            <label htmlFor="email">Email</label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.currentTarget.value)} // Use currentTarget
-              className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
           </div>
           
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-300">Password</label>
+            <label htmlFor="password">Password</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)} // Use currentTarget
-              className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
           </div>
           
           <div>
-            <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-300">Phone Number</label>
+            <label htmlFor="phoneNumber">Phone Number</label>
             <PhoneInput
               id="phoneNumber"
               placeholder="Enter phone number"
@@ -140,10 +138,9 @@ export default function AuthForm() {
               defaultCountry="US" // Optional: set a default country
               international
               withCountryCallingCode
-              className="phone-input-container" // Class for custom styling wrapper
               required
             />
-            <p className="mt-1 text-sm text-gray-400">
+            <p>
               For SMS notifications about errors.
             </p>
           </div>
@@ -151,16 +148,14 @@ export default function AuthForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
             {loading ? 'Signing up...' : 'Sign Up'}
           </button>
         </form>
         
-        <div className="text-center">
+        <div>
           <button 
             onClick={toggleView}
-            className="text-sm text-indigo-400 hover:text-indigo-300"
           >
             Already have an account? Sign in
           </button>
@@ -179,16 +174,15 @@ export default function AuthForm() {
         showLinks={false}
       />
       
-      <div className="mt-4 text-center">
+      <div>
         <button 
           onClick={toggleView}
-          className="text-sm text-indigo-400 hover:text-indigo-300"
         >
           Don't have an account? Sign up
         </button>
       </div>
       
-      {error && <div className="mt-4 p-3 bg-red-800 rounded text-white text-sm">{error}</div>}
+      {error && <div>{error}</div>}
     </div>
   )
 } 

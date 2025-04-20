@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import LogoutButton from '../../components/LogoutButton'
+import LogoutButton from '@/app/components/LogoutButton'
 import styles from '../dashboard.module.css'
 import { motion } from 'framer-motion'
 
@@ -31,29 +31,30 @@ export default function ProfilePage() {
   const supabase = createClient()
 
   // Format phone number input
-  const formatPhoneNumber = (value: string) => {
+  const formatPhoneNumber = (value: string | null | undefined): string => {
+    if (!value) return ''
     // Remove all non-digit characters
     let cleaned = value.replace(/\D/g, '')
     
-    // Format as (XXX) XXX-XXXX
-    if (cleaned.length > 0) {
-      if (cleaned.length <= 3) {
-        return `(${cleaned}`
-      } else if (cleaned.length <= 6) {
-        return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`
-      } else {
-        return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`
-      }
+    // Format based on digits only, assuming E.164 input for display formatting
+    if (cleaned.startsWith('1') && cleaned.length === 11) {
+      cleaned = cleaned.substring(1); // Remove leading '1' for US format
     }
-    return cleaned
+    
+    if (cleaned.length === 10) {
+        return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`
+    } 
+    // Return original (potentially non-US) number if not 10 digits after cleaning
+    // Or handle other formats as needed
+    return value; 
   }
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value)
+    // Formatting is primarily for display; saving uses raw E.164
+    const formatted = formatPhoneNumber(e.currentTarget.value)
     setPhoneNumber(formatted)
   }
 
-  // Fetch auth user
   useEffect(() => {
     async function getAuthUserAndProfile() {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
@@ -67,7 +68,6 @@ export default function ProfilePage() {
       setUser(authUser)
       
       try {
-        // Try fetching the user profile from the public.users table
         let { data: profileData, error: profileError } = await supabase
           .from('users')
           .select('id, email, phone_number, created_at')
@@ -75,23 +75,20 @@ export default function ProfilePage() {
           .maybeSingle()
         
         if (profileError) {
-          // Throw actual database errors
           throw profileError 
         }
         
-        // If profile doesn't exist, create it
         if (!profileData) {
           console.log(`Profile not found for user ${authUser.id}. Creating one.`);
           const { data: newProfile, error: insertError } = await supabase
             .from('users')
             .insert({
               supabase_auth_id: authUser.id,
-              email: authUser.email, // Get email from auth user
-              // Attempt to get phone from user_metadata if available
+              email: authUser.email, 
               phone_number: authUser.user_metadata?.phone_number || null 
             })
-            .select('id, email, phone_number, created_at') // Select the newly created profile
-            .single() // Use single here as we expect one row after insert
+            .select('id, email, phone_number, created_at')
+            .single()
             
           if (insertError) {
             console.error('Error creating profile:', insertError.message)
@@ -99,15 +96,12 @@ export default function ProfilePage() {
           }
           
           console.log('Profile created successfully:', newProfile);
-          profileData = newProfile // Use the newly created profile data
+          profileData = newProfile 
         }
         
-        // Set profile state (either existing or newly created)
-        setProfile(profileData as UserProfile) // Cast as UserProfile, should not be null here
+        setProfile(profileData as UserProfile)
         
-        // Set phone number from profile if available
         if (profileData?.phone_number) {
-          // Use the correct formatting function for display
           setPhoneNumber(formatPhoneNumber(profileData.phone_number))
         }
         
@@ -133,15 +127,15 @@ export default function ProfilePage() {
     setSuccess(null)
     
     try {
-      // Extract raw phone number (digits only)
+      // Use the display phone number state and clean it for validation/saving
       const rawPhoneNumber = phoneNumber.replace(/\D/g, '')
       
-      // Validate phone number format
-      if (rawPhoneNumber.length !== 10) {
-        throw new Error('Please enter a valid 10-digit phone number')
+      // Basic validation (e.g., 10 digits for US)
+      if (rawPhoneNumber.length !== 10) { 
+        throw new Error('Please enter a valid 10-digit US phone number')
       }
       
-      // Format for storage with country code
+      // Format for storage with country code (assuming US +1)
       const formattedPhoneNumber = `+1${rawPhoneNumber}`
       
       // Update in Supabase users table
@@ -167,6 +161,8 @@ export default function ProfilePage() {
           ...profile,
           phone_number: formattedPhoneNumber
         })
+        // Re-format for display after successful save
+        setPhoneNumber(formatPhoneNumber(formattedPhoneNumber))
       }
     } catch (err: any) {
       console.error('Error updating phone number:', err)
@@ -198,9 +194,10 @@ export default function ProfilePage() {
         <div className={styles.headerRight}>
           {user && (
             <span className={styles.userEmail}>
-              {user.email}
+              {user.email} 
             </span>
           )}
+          {/* Add Profile link here if desired, or keep it in nav below */}
           <LogoutButton />
         </div>
       </header>
@@ -238,11 +235,15 @@ export default function ProfilePage() {
             </div>
           )}
           
-          <div className={styles.profileInfo}>
-            <p><strong>Email:</strong> {profile?.email}</p>
-            <p><strong>Member since:</strong> {profile ? new Date(profile.created_at).toLocaleDateString() : ''}</p>
-          </div>
+          {/* Ensure profile exists before accessing properties */}
+          {profile && (
+            <div className={styles.profileInfo}>
+              <p><strong>Email:</strong> {profile.email}</p>
+              <p><strong>Member since:</strong> {new Date(profile.created_at).toLocaleDateString()}</p>
+            </div>
+          )}
           
+          {/* Form to update phone number */}          
           <form onSubmit={handleSavePhoneNumber} className={styles.updateForm}>
             <div className={styles.formGroup}>
               <label htmlFor="phoneNumber" className={styles.formLabel}>

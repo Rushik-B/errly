@@ -57,7 +57,7 @@ CREATE POLICY "Users can select errors from their projects" ON public.errors
 
 -- API key based insert via service role only
 CREATE POLICY "Service role can insert errors" ON public.errors
-    FOR INSERT USING (auth.role() = 'service_role');
+    FOR INSERT WITH CHECK (auth.role() = 'service_role');
 
 -- Service role can manage all errors
 CREATE POLICY "Service role can manage all errors" ON public.errors
@@ -67,18 +67,32 @@ CREATE POLICY "Service role can manage all errors" ON public.errors
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
+-- Keep SECURITY DEFINER as it might be needed for accessing auth.users depending on grants
+SECURITY DEFINER SET search_path = public 
 AS $$
 DECLARE
   phone_number_value text;
 BEGIN
+  -- Log the raw metadata received
+  RAISE NOTICE 'handle_new_user trigger fired for user: %, email: %', NEW.id, NEW.email;
+  RAISE NOTICE 'Raw user meta data: %', NEW.raw_user_meta_data;
+
   -- Extract phone_number from user_metadata if available
   phone_number_value := (NEW.raw_user_meta_data->>'phone_number')::text;
-  
+  RAISE NOTICE 'Extracted phone_number_value: %', phone_number_value;
+
+  -- Temporarily bypass RLS for this insert
+  SET LOCAL session_replication_role = replica; 
+
   -- Insert new user record with phone number if available
+  RAISE NOTICE 'Attempting to insert into public.users with phone: % (RLS bypassed)', phone_number_value;
   INSERT INTO public.users (supabase_auth_id, email, phone_number)
   VALUES (NEW.id, NEW.email, phone_number_value);
-  
+  RAISE NOTICE 'Insert into public.users completed for user: %', NEW.id;
+
+  -- Reset session replication role back to default
+  SET LOCAL session_replication_role = origin; 
+
   RETURN NEW;
 END;
 $$;
