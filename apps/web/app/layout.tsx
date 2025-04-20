@@ -16,12 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.className}`}>
       <body 
-        className="min-h-screen bg-gray-50 text-gray-900 antialiased"
+        className="min-h-screen antialiased"
         suppressHydrationWarning={true}
       >
-        <main className="max-w-screen-xl mx-auto">
-          {children}
-        </main>
+        {children}
       </body>
     </html>
   )

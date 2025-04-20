@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Basic Reset */
 *,
 *::before,
@@ -31,8 +35,8 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   /* The Inter font is applied in layout.tsx */
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  /* background-color: var(--bg-primary); */ /* Commented out */
+  /* color: var(--text-primary); */ /* Commented out */
 }
 
 img,
@@ -44,13 +48,15 @@ svg {
   max-width: 100%;
 }
 
+/* Remove default input/button styles to rely on Tailwind utilities */
+/*
 input,
 button,
 textarea,
 select {
   font: inherit;
-  color: inherit; /* Ensure inputs inherit text color */
-  background-color: var(--bg-secondary); /* Default dark input background */
+  color: inherit; 
+  background-color: var(--bg-secondary); 
   border: 1px solid var(--border-color);
   padding: 0.5rem;
   border-radius: 0.25rem;
@@ -60,6 +66,7 @@ input::placeholder,
 textarea::placeholder {
   color: var(--text-muted);
 }
+*/
 
 p {
   overflow-wrap: break-word;
