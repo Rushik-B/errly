@@ -74,7 +74,7 @@ serve(async (req: Request): Promise<Response> => {
     }
     if (!projectData) {
       console.warn("[send-error-notification] Project not found for ID:", newError.project_id);
-      return new Response(
+  return new Response(
         JSON.stringify({ message: "Project details not found, skipping notification." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Not a server error
       );
@@ -214,7 +214,7 @@ serve(async (req: Request): Promise<Response> => {
   curl -i --location --request POST \
        'http://127.0.0.1:54321/functions/v1/send-error-notification' \
        --header 'Authorization: Bearer YOUR_JWT' \
-       --header 'Content-Type: application/json' \
-       --data '{"name":"Functions"}'
+    --header 'Content-Type: application/json' \
+    --data '{"name":"Functions"}'
 */
 /* ------------------------------------------------------------------ */

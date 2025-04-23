@@ -4,7 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 
 // CORS Headers - Adjust origin as needed for production
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': 'http://localhost:3000', // Allow frontend origin (replace with * or your specific frontend URL in production)
+  'Access-Control-Allow-Origin': 'http://localhost:8080', // Allow frontend origin (replace with * or your specific frontend URL in production)
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', // Allow relevant methods
   'Access-Control-Allow-Headers': 'Content-Type, Authorization', // Allow necessary headers
   'Access-Control-Allow-Credentials': 'true', // Allow credentials (cookies)
