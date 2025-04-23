@@ -68,7 +68,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 -- Keep SECURITY DEFINER as it might be needed for accessing auth.users depending on grants
-SECURITY DEFINER SET search_path = public 
+SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
   phone_number_value text;

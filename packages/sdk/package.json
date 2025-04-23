@@ -1,7 +1,7 @@
 {
   "name": "errly",
-  "version": "0.0.1",
-  "description": "Send console.ext logs to Errly",
+  "version": "0.1.0",
+  "description": "Send console.text logs to Errly",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -15,11 +15,26 @@
     "build": "rollup -c",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "errly",
+    "error",
+    "logging",
+    "reporting",
+    "monitoring",
+    "console",
+    "sdk"
+  ],
+  "author": "YOUR_NAME_OR_ORG",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/YOUR_REPO.git"
+  },
+  "homepage": "https://github.com/YOUR_USERNAME/YOUR_REPO#readme",
+  "bugs": {
+    "url": "https://github.com/YOUR_USERNAME/YOUR_REPO/issues"
+  },
   "dependencies": {
-    "undici": "^6.19.4"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.6",

@@ -37,5 +37,5 @@
           // }
         }),
       ],
-      external: ['undici'] // undici is a peer dependency, don't bundle it
+      external: [] // <-- Removed 'undici'
     };
