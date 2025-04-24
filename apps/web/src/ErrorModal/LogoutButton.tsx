@@ -2,24 +2,31 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createClient } from '../lib/supabaseClient';
+import { getSupabaseClient } from '../lib/supabaseClient';
 import styles from './LogoutButton.module.css';
 
-export default function LogoutButton() {
+const LogoutButton: React.FC = () => {
   const navigate = useNavigate();
-  const supabase = createClient();
+  const supabase = getSupabaseClient();
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error logging out:', error.message);
+    } else {
+      console.log('Logout successful, navigating to home.');
+      navigate('/');
+    }
   };
 
   return (
     <button
-      onClick={handleSignOut}
+      onClick={handleLogout}
       className={styles.logoutButton}
     >
-      Log Out
+      Logout
     </button>
   );
-} 
+};
+
+export default LogoutButton; 
