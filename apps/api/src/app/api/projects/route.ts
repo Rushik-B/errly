@@ -7,7 +7,9 @@ import { getUserSession } from '@/lib/authUtils'; // Import only getUserSession
 
 // Define dashboard-specific CORS headers locally
 const dashboardCorsHeaders = {
-  'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080', // Use environment variable
+  // Use environment variable again
+  // 'Access-Control-Allow-Origin': 'https://errly.vercel.app', 
+  'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080', 
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', // Adjust methods as needed for this route
   'Access-Control-Allow-Headers': 'Content-Type, Authorization', // Allow necessary headers for auth
   'Access-Control-Allow-Credentials': 'true', // Allow credentials
