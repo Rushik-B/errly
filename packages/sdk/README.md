@@ -33,12 +33,6 @@ function someOperation() {
 someOperation();
 ```
 
-## Configuration
-
-### API Endpoint
-
-By default, the SDK sends events to `http://127.0.0.1:3001/api/errors`. You can override this by setting the `ERRLY_API_ENDPOINT` environment variable.
-
 ## API
 
 *   `setKey(apiKey: string): void`

@@ -1,5 +1,5 @@
 {
-  "name": "errly",
+  "name": "errly-sdk",
   "version": "0.1.0",
   "description": "Send console.text logs to Errly",
   "main": "dist/index.cjs",
@@ -24,18 +24,17 @@
     "console",
     "sdk"
   ],
-  "author": "YOUR_NAME_OR_ORG",
+  "author": "Rushik Behal",
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/YOUR_REPO.git"
+    "url": "git+https://github.com/Rushik-B/errly.git"
   },
-  "homepage": "https://github.com/YOUR_USERNAME/YOUR_REPO#readme",
+  "homepage": "https://github.com/Rushik-B/errly#readme",
   "bugs": {
-    "url": "https://github.com/YOUR_USERNAME/YOUR_REPO/issues"
+    "url": "https://github.com/Rushik-B/errly/issues"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/node": "^22.14.1",

@@ -5,7 +5,7 @@
     // import { fetch } from 'undici';
 
     let key: string = '';
-    const defaultApiEndpoint = 'http://127.0.0.1:3001/api/errors'; // Default for local dev
+    const defaultApiEndpoint = 'https://errly.vercel.app/api/errors'; // Default for local dev
     // This holds the API key, scoped to this module.
     // In a real-world scenario, you might want a more robust way
     // to manage this state, but for an MVP, this is fine.
@@ -75,11 +75,8 @@
      * @param args - The arguments passed to the console method.
      */
     async function sendEvent(level: string, args: any[]): Promise<void> {
-      // Allow overriding the endpoint via environment variable
-      // Make sure process is checked for existence if running in non-Node envs
-      const apiUrl = (typeof process !== 'undefined' && process.env.ERRLY_API_ENDPOINT)
-                     ? process.env.ERRLY_API_ENDPOINT
-                     : defaultApiEndpoint;
+      // Use the hardcoded default endpoint directly
+      const apiUrl = defaultApiEndpoint;
 
       // 1. Format the arguments into a single message string
       const message = args
