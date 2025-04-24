@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 // Remove unused imports if getUserSession no longer needs them directly here
 // import { cookies } from 'next/headers'; 
 // import { createServerClient } from '@supabase/ssr'; 
-import { getUserSession } from '@/lib/authUtils'; // Import only getUserSession
+import { getUserFromToken } from '@/lib/authUtils'; // Import new function
 
 // Restore dashboardCorsHeaders constant
 const dashboardCorsHeaders = {
@@ -19,20 +19,20 @@ export async function OPTIONS(_request: Request) {
 }
 
 // GET /api/projects - List projects for the authenticated user
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   console.log('[API] GET /api/projects called');
   console.log('[API] Request headers:', Object.fromEntries(request.headers.entries()));
   
-  const session = await getUserSession();
-  console.log('[API] Session check result:', !!session);
+  // Use JWT validation
+  const user = await getUserFromToken(request); 
 
-  if (!session?.user) {
-    console.log('[API] No authenticated user found, returning 401');
-    // Add back explicit headers
+  if (!user) { // Check for user object
+    console.log('[API] No authenticated user found via token, returning 401');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders }); 
   }
 
-  const userId = session.user.id;
+  // Use user.id directly
+  const userId = user.id; 
   console.log(`[API] Fetching projects for user: ${userId}`);
 
   try {
@@ -64,15 +64,16 @@ export async function GET(request: Request) {
 }
 
 // POST /api/projects - Create a new project for the authenticated user
-export async function POST(request: Request) {
-  const session = await getUserSession();
+export async function POST(request: NextRequest) {
+  // Use JWT validation
+  const user = await getUserFromToken(request); 
 
-  if (!session?.user) {
-    // Add back explicit headers
+  if (!user) { // Check for user object
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders }); 
   }
 
-  const userId = session.user.id;
+  // Use user.id directly
+  const userId = user.id; 
   let name: string;
 
   try {

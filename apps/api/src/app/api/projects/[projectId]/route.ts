@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getUserSession } from '@/lib/authUtils'; // Import only getUserSession
+import { getUserFromToken } from '@/lib/authUtils'; // Import new function
 
 // Restore dashboardCorsHeaders constant
 const dashboardCorsHeaders = {
@@ -26,13 +26,15 @@ export async function GET(
     // Add back explicit headers
     return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
   }
-  const session = await getUserSession();
+  // Use JWT validation
+  const user = await getUserFromToken(request);
 
-  if (!session?.user) {
+  if (!user) { // Check for user object
     // Add back explicit headers
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
-  const userId = session.user.id;
+  // Use user.id directly
+  const userId = user.id;
   const projectId = params.projectId;
 
   try {
@@ -82,13 +84,15 @@ export async function PUT(
     // Add back explicit headers
     return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
   }
-  const session = await getUserSession();
+  // Use JWT validation
+  const user = await getUserFromToken(request);
 
-  if (!session?.user) {
+  if (!user) { // Check for user object
     // Add back explicit headers
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
-  const userId = session.user.id;
+  // Use user.id directly
+  const userId = user.id;
   const projectId = params.projectId;
 
   let name: string;
@@ -154,13 +158,16 @@ export async function DELETE(
     // Add back explicit headers
     return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
   }
-  const session = await getUserSession();
+  // Use JWT validation
+  // Note: We still need the request object here, so remove the underscore
+  const user = await getUserFromToken(_request);
 
-  if (!session?.user) {
+  if (!user) { // Check for user object
     // Add back explicit headers
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
-  const userId = session.user.id;
+  // Use user.id directly
+  const userId = user.id;
   const projectId = params.projectId;
 
   try {

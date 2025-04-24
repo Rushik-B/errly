@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import type { Session } from '@supabase/supabase-js';
+import { type NextRequest } from 'next/server';
+import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 
 // CORS Headers object removed as headers are now handled per-route
 /*
@@ -12,75 +11,75 @@ export const corsHeaders = {
 };
 */
 
-// Helper function to get user session from server components/API routes
-export async function getUserSession(): Promise<Session | null> {
-  console.log('[API AuthUtil] getUserSession started');
-  const cookieStore = await cookies();
+// Lazily initialize Supabase client to avoid initializing on every request if module is cached
+let supabaseAdmin: SupabaseClient | null = null;
 
-  // Log cookie names for debugging
-  // const cookieNames = Array.from(cookieStore.getAll()).map(c => c.name);
-  // console.log('[API AuthUtil] Available cookies:', cookieNames);
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          const value = cookieStore.get(name)?.value;
-          // console.log(`[API AuthUtil] Cookie accessed - ${name}: ${value ? 'has value' : 'undefined'}`);
-          return value;
-        },
-        // Note: Set and Remove are usually not needed in read-only scenarios like API routes
-        // but provided here for completeness if this util is used elsewhere.
-        set(name: string, value: string, options: CookieOptions) {
-            try {
-                // console.log(`[API AuthUtil] Setting cookie: ${name}`);
-                cookieStore.set({ name, value, ...options });
-            } catch (_error: unknown) {
-                // The `set` method was called from a Server Component.
-                // This can be ignored if you have middleware refreshing
-                // user sessions.
-                console.warn(`[API AuthUtil] Failed to set cookie '${name}' from Server Component/Route. This might be okay if middleware handles session refresh.`);
-            }
-        },
-        remove(name: string, options: CookieOptions) {
-            try {
-                // console.log(`[API AuthUtil] Removing cookie: ${name}`);
-                cookieStore.set({ name, value: '', ...options });
-            } catch (_error: unknown) {
-                // The `delete` method was called from a Server Component.
-                // This can be ignored if you have middleware refreshing
-                // user sessions.
-                 console.warn(`[API AuthUtil] Failed to remove cookie '${name}' from Server Component/Route. This might be okay if middleware handles session refresh.`);
-            }
-        },
-      },
+function getSupabaseAdminClient(): SupabaseClient {
+  if (!supabaseAdmin) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Missing Supabase environment variables for admin client.');
     }
-  );
+    supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          // Required for service role client
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+  }
+  return supabaseAdmin;
+}
+
+// Helper function to get user from Authorization header JWT
+export async function getUserFromToken(request: NextRequest): Promise<User | null> {
+  console.log('[API AuthUtil] getUserFromToken started');
+  const authHeader = request.headers.get('Authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('[API AuthUtil] No or invalid Authorization header found');
+    return null;
+  }
+
+  const token = authHeader.split(' ')[1];
+  if (!token) {
+    console.log('[API AuthUtil] Token missing after Bearer');
+    return null;
+  }
 
   try {
-    // console.log('[API AuthUtil] Calling supabase.auth.getSession()');
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const supabase = getSupabaseAdminClient();
+    console.log('[API AuthUtil] Calling supabase.auth.getUser(token)');
+    // This verifies the token using the JWT secret configured implicitly or explicitly
+    // and fetches the user details from Supabase.
+    const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error) {
-      console.error('[API AuthUtil] Error getting session:', error.message);
+      console.error('[API AuthUtil] Error validating token or getting user:', error.message);
+      // Log specific errors like invalid signature, expired token etc.
+      if (error.message.includes('invalid signature') || error.message.includes('JWT expired')) {
+          console.warn('[API AuthUtil] Token validation failed:', error.message);
+      }
       return null;
     }
 
-    // console.log('[API AuthUtil] Session result:', {
-    //   hasSession: !!session,
-    //   userId: session?.user?.id || 'no user id',
-    //   email: session?.user?.email || 'no email'
-    // });
+    if (!user) {
+      console.log('[API AuthUtil] No user found for valid token');
+      return null;
+    }
 
-    return session;
+    console.log(`[API AuthUtil] User found: ${user.id}, email: ${user.email}`);
+    return user;
+
   } catch (err: unknown) {
-    let errorMessage = 'An unexpected error occurred';
+    let errorMessage = 'An unexpected error occurred during token validation';
     if (err instanceof Error) {
         errorMessage = err.message;
     }
-    console.error('[API AuthUtil] Unexpected error getting session:', errorMessage);
+    console.error('[API AuthUtil] Unexpected error:', errorMessage);
     return null;
   }
 } 
