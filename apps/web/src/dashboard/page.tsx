@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, FormEvent } from 'react';
-import { createClient } from '../lib/supabaseClient';
+import { getSupabaseClient } from '../lib/supabaseClient';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ClipboardIcon, CheckIcon, PlusIcon, EyeIcon, EyeSlashIcon, ListBulletIcon } from '@heroicons/react/24/outline';
@@ -84,7 +84,7 @@ export default function Dashboard() {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const supabase = createClient();
+  const supabase = getSupabaseClient();
   const { user: authUser, signOut, loading: loadingAuth, session } = useAuth();
 
   // Detect scroll for navbar styling

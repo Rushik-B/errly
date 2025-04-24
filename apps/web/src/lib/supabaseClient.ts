@@ -1,8 +1,16 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js' // Import standard client
+import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js' // Import SupabaseClient type
 
-export function createClient() {
-  // Use import.meta.env for Vite environment variables
-  // Ensure your .env file uses VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+// Variable to hold the singleton instance
+let supabaseInstance: SupabaseClient | null = null;
+
+// Function to get the singleton instance
+export function getSupabaseClient(): SupabaseClient {
+  // Return existing instance if available
+  if (supabaseInstance) {
+    return supabaseInstance;
+  }
+
+  // Create new instance if it doesn't exist
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
@@ -10,26 +18,32 @@ export function createClient() {
     throw new Error("Supabase URL or Anon Key missing in .env file (must be prefixed with VITE_)");
   }
 
-  // Use the standard browser client
-  return createSupabaseClient(
+  // Create and store the instance
+  supabaseInstance = createSupabaseClient(
     supabaseUrl,
     supabaseAnonKey,
     {
-      auth: { // Configure auth options here
-        persistSession: true, // Explicitly enable session persistence (default is true)
-        autoRefreshToken: true, // Explicitly enable token refreshing (default is true)
-        detectSessionInUrl: true, // Handle session restoration from URL (useful for email magic links etc.)
+      auth: { 
+        persistSession: true, 
+        autoRefreshToken: true, 
+        detectSessionInUrl: true, 
       },
       // Removing cookieOptions for now, as standard client primarily uses localStorage.
       // We can re-add if specific cookie control is needed later.
       /*
       cookieOptions: {
-        domain: '.errly.dev', // Correct domain
+        domain: '.errly.dev', 
         path: '/',
-        sameSite: 'Lax', // Change back to Lax
+        sameSite: 'Lax', 
         secure: true
       }
       */
     }
   )
-} 
+  
+  return supabaseInstance;
+}
+
+// Optional: Export the instance directly for convenience if preferred,
+// but the getter function ensures initialization happens correctly.
+// export const supabase = getSupabaseClient(); 

@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { createClient } from '../lib/supabaseClient'
+import { getSupabaseClient } from '../lib/supabaseClient'
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
 import type { Value } from 'react-phone-number-input'
 import {
@@ -81,7 +81,7 @@ const AuthForm: React.FC = () => {
 
   const navigate = useNavigate()
   const location = useLocation()
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   // State to hold the redirect path
   const [redirectPath, setRedirectPath] = useState<string | null>(null)

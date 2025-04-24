@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { createClient } from '../lib/supabaseClient'; // Path is correct
+// Import the singleton getter function
+import { getSupabaseClient } from '../lib/supabaseClient'; 
 
 // Define the shape of the context data
 interface AuthContextType {
@@ -19,7 +20,8 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const supabase = createClient(); // Get the Supabase client instance
+  // Get the singleton Supabase client instance
+  const supabase = getSupabaseClient(); 
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
