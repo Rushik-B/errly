@@ -110,7 +110,8 @@ export default function Dashboard() {
   // Fetch projects when authUser is loaded
   useEffect(() => {
     // Use authUser directly here
-    if (!authUser) return; 
+    // Ensure auth is not loading AND session exists before fetching
+    if (loadingAuth || !session) return; 
 
     const fetchProjects = async () => {
       setLoadingProjects(true);
@@ -119,8 +120,8 @@ export default function Dashboard() {
         // Pass the access token to the fetch function
         const data: Project[] = await fetchWithErrorHandling(
           'https://errly-api.vercel.app/api/projects', 
-          { credentials: 'include' }, // Keep credentials for potential cookie use
-          session?.access_token // Pass token here
+          {}, // Pass empty options object if no other options needed
+          session.access_token // Use session.access_token directly now we know session is not null
         );
         setProjects(data);
       } catch (err: any) {
@@ -132,7 +133,7 @@ export default function Dashboard() {
     };
 
     fetchProjects();
-  }, [authUser, session]); // Depend on authUser and session
+  }, [loadingAuth, session]); // Depend on loadingAuth and session
 
   const handleCreateProject = async (e: FormEvent) => {
     e.preventDefault();
@@ -151,17 +152,16 @@ export default function Dashboard() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ name: newProjectName.trim() }),
-          credentials: 'include',
         },
-        session?.access_token // Pass token here
+        session?.access_token // Keep optional chaining here just in case
       );
 
       // Fetch projects again to get the new project including its generated API key
       // Pass token for refetching projects
       const data: Project[] = await fetchWithErrorHandling(
         'https://errly-api.vercel.app/api/projects', 
-        { credentials: 'include' },
-        session?.access_token // Pass token here
+        {},
+        session?.access_token // Keep optional chaining here
       );
       setProjects(data); // Update the whole list
       setNewProjectName('');
