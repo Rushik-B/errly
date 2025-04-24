@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { createClient } from '../../../lib/supabaseClient';
+import { getSupabaseClient } from '../../../lib/supabaseClient';
 import LogoutButton from '../../../ErrorModal/LogoutButton';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
@@ -98,7 +98,7 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function ProjectErrorsPage() {
   const params = useParams();
   const navigate = useNavigate();
-  const supabase = createClient();
+  const supabase = getSupabaseClient();
 
   const projectId = params.projectId as string;
 
