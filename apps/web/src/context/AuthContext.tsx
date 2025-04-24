@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [supabase, loading]); // Add supabase and loading as dependencies
+  }, [supabase]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
