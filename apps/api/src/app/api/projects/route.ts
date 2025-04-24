@@ -1,9 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { supabaseAdmin } from '../../../lib/supabase/admin.ts';
 // Remove unused imports if getUserSession no longer needs them directly here
 // import { cookies } from 'next/headers'; 
 // import { createServerClient } from '@supabase/ssr'; 
-import { getUserFromToken } from '@/lib/authUtils'; // Import new function
+import { getUserFromToken } from '../../../lib/authUtils.ts'; // Relative path with extension
 
 // Restore dashboardCorsHeaders constant
 const dashboardCorsHeaders = {

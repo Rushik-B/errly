@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getUserFromToken } from '@/lib/authUtils'; // Import new function
+import { supabaseAdmin } from '../../../../lib/supabase/admin.ts';
+import { getUserFromToken } from '../../../../lib/authUtils.ts';
 
 // Restore dashboardCorsHeaders constant
 const dashboardCorsHeaders = {

@@ -1,8 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
-import { supabaseServiceClient } from '@/lib/supabaseClient'
-import { getUserFromToken } from '@/lib/authUtils'
+import { supabaseAdmin } from '../../../lib/supabase/admin.ts'
+import { supabaseServiceClient } from '../../../lib/supabaseClient.ts'
+import { getUserFromToken } from '../../../lib/authUtils.ts'
 import { z } from 'zod' // Import Zod
+
+// Restore dashboard-specific CORS headers (for GET requests)
+const dashboardCorsHeaders = {
+  'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080', 
+  'Access-Control-Allow-Methods': 'GET, OPTIONS', 
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization', 
+  'Access-Control-Allow-Credentials': 'true',
+};
+
+// Define permissive CORS headers for SDK submissions (POST)
+const sdkCorsHeaders = {
+  'Access-Control-Allow-Origin': '*', // Allow any origin
+  'Access-Control-Allow-Methods': 'POST, OPTIONS', // Allow POST/OPTIONS for error submission
+  'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key', // Allow content type and API key header
+};
+
+// Restore OPTIONS handler - checks requested method
+export async function OPTIONS(request: NextRequest) {
+  const requestMethod = request.headers.get('access-control-request-method');
+  console.log('[API Errors OPTIONS] Requested Method:', requestMethod); 
+  
+  if (requestMethod === 'GET') {
+      // Preflight for Dashboard GET request
+      console.log('[API Errors OPTIONS] Responding for GET preflight');
+      return new NextResponse(null, { status: 204, headers: dashboardCorsHeaders });
+  } else if (requestMethod === 'POST') {
+       // Preflight for SDK POST request
+      console.log('[API Errors OPTIONS] Responding for POST preflight');
+      return new NextResponse(null, { status: 204, headers: sdkCorsHeaders });
+  } else {
+      // Default/fallback OPTIONS response if method is unknown or not specified
+      console.log('[API Errors OPTIONS] Responding with default (POST likely)');
+      // Respond allowing POST as a sensible default for this /api/errors endpoint
+      return new NextResponse(null, { status: 204, headers: sdkCorsHeaders }); 
+  }
+}
 
 // Define the Zod schema for the request body
 const errorSchema = z.object({
@@ -18,8 +54,8 @@ export async function GET(request: NextRequest) {
   const user = await getUserFromToken(request);
 
   if (!user) { // Check for user object
-    // Return 401 (Headers should be handled by vercel.json if configured)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Add back explicit dashboard headers for errors
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
   // Use user.id directly
   const userId = user.id;
@@ -31,7 +67,8 @@ export async function GET(request: NextRequest) {
   const limitParam = searchParams.get('limit')
 
   if (!projectId) {
-    return NextResponse.json({ error: 'Missing required query parameter: projectId' }, { status: 400 })
+    // Add back explicit dashboard headers
+    return NextResponse.json({ error: 'Missing required query parameter: projectId' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
   // --- Validate Project Ownership ---
@@ -44,13 +81,15 @@ export async function GET(request: NextRequest) {
       .maybeSingle() // Use maybeSingle to handle null case gracefully
 
     if (projectError) {
-      console.error('Error validating project ownership:', projectError.message)
-      return NextResponse.json({ error: 'Failed to validate project ownership', details: projectError.message }, { status: 500 })
+      console.error('Error validating project ownership:', projectError.message);
+      // Add back explicit dashboard headers
+      return NextResponse.json({ error: 'Failed to validate project ownership', details: projectError.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
     if (!project) {
       // If project is null, it means either it doesn't exist or doesn't belong to the user
-      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
+      // Add back explicit dashboard headers
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
     // If we reach here, the user owns the project
   } catch (err: unknown) {
@@ -58,8 +97,9 @@ export async function GET(request: NextRequest) {
     if (err instanceof Error) {
         errorMessage = err.message;
     }
-    console.error('Unexpected error validating project ownership:', errorMessage)
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    console.error('Unexpected error validating project ownership:', errorMessage);
+    // Add back explicit dashboard headers
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
   // --- End Validate Project Ownership ---
 
@@ -69,7 +109,8 @@ export async function GET(request: NextRequest) {
   const offset = (page - 1) * limit
 
   if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
-    return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400 })
+    // Add back explicit dashboard headers
+    return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
   try {
@@ -81,24 +122,27 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1) // Apply pagination range
 
     if (errorsError) {
-      console.error('Error fetching errors:', errorsError.message)
-      return NextResponse.json({ error: 'Failed to fetch errors', details: errorsError.message }, { status: 500 })
+      console.error('Error fetching errors:', errorsError.message);
+      // Add back explicit dashboard headers
+      return NextResponse.json({ error: 'Failed to fetch errors', details: errorsError.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
+    // Add back explicit dashboard headers for success
     return NextResponse.json({
       data: errors ?? [],
       totalCount: count ?? 0,
       page,
       limit,
-    })
+    }, { headers: dashboardCorsHeaders });
 
   } catch (err: unknown) {
     let errorMessage = 'An unexpected error occurred while fetching errors';
      if (err instanceof Error) {
         errorMessage = err.message;
     }
-    console.error('Unexpected error fetching errors:', errorMessage)
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    console.error('Unexpected error fetching errors:', errorMessage);
+    // Add back explicit dashboard headers
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
   // --- End Fetch Errors with Pagination ---
 }
