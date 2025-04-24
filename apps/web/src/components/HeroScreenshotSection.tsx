@@ -3,7 +3,7 @@ import { Download, Laptop } from "lucide-react";
 export default function HeroScreenshotSection() {
   return <section className="relative min-h-[850px] w-full flex flex-col items-center justify-center select-none overflow-hidden">
       {/* Backdrop curtain gradient */}
-      <img src="public/lovable-uploads/screenshot.png" alt="curtain" draggable={false} aria-hidden="true" className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none" style={{
+      <img src="/lovable-uploads/screenshot.png" alt="curtain" draggable={false} aria-hidden="true" className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none" style={{
       objectPosition: "center"
     }} />
 
