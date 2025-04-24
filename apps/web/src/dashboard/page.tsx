@@ -26,10 +26,21 @@ interface Project {
 // Use import.meta.env for Vite environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-async function fetchWithErrorHandling(url: string, options?: RequestInit): Promise<any> {
+// Update fetchWithErrorHandling to accept and use an auth token
+async function fetchWithErrorHandling(url: string, options?: RequestInit, token?: string | null): Promise<any> {
   let response;
+  
+  // Prepare headers, adding Authorization if token is provided
+  const headers = new Headers(options?.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   try {
-    response = await fetch(url, options);
+    response = await fetch(url, {
+      ...options,
+      headers: headers, // Use the potentially modified headers
+    });
   } catch (networkError: any) {
     console.error('Network error during fetch:', networkError);
     throw new Error(`Network error: ${networkError.message}`);
@@ -73,7 +84,7 @@ export default function Dashboard() {
   
   const navigate = useNavigate();
   const supabase = createClient();
-  const { user: authUser, signOut, loading: loadingAuth } = useAuth();
+  const { user: authUser, signOut, loading: loadingAuth, session } = useAuth();
 
   // Detect scroll for navbar styling
   useEffect(() => {
@@ -105,9 +116,12 @@ export default function Dashboard() {
       setLoadingProjects(true);
       setError(null);
       try {
-        const data: Project[] = await fetchWithErrorHandling('https://errly-api.vercel.app/api/projects', {
-          credentials: 'include',
-        });
+        // Pass the access token to the fetch function
+        const data: Project[] = await fetchWithErrorHandling(
+          'https://errly-api.vercel.app/api/projects', 
+          { credentials: 'include' }, // Keep credentials for potential cookie use
+          session?.access_token // Pass token here
+        );
         setProjects(data);
       } catch (err: any) {
         console.error('Error fetching projects wrapper:', err);
@@ -118,7 +132,7 @@ export default function Dashboard() {
     };
 
     fetchProjects();
-  }, [authUser]); // Depend on authUser
+  }, [authUser, session]); // Depend on authUser and session
 
   const handleCreateProject = async (e: FormEvent) => {
     e.preventDefault();
@@ -128,19 +142,27 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      const newProjectData = await fetchWithErrorHandling('https://errly-api.vercel.app/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Pass token for creating project
+      const newProjectData = await fetchWithErrorHandling(
+        'https://errly-api.vercel.app/api/projects', 
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: newProjectName.trim() }),
+          credentials: 'include',
         },
-        body: JSON.stringify({ name: newProjectName.trim() }),
-        credentials: 'include',
-      });
+        session?.access_token // Pass token here
+      );
 
       // Fetch projects again to get the new project including its generated API key
-      const data: Project[] = await fetchWithErrorHandling('https://errly-api.vercel.app/api/projects', {
-        credentials: 'include',
-      });
+      // Pass token for refetching projects
+      const data: Project[] = await fetchWithErrorHandling(
+        'https://errly-api.vercel.app/api/projects', 
+        { credentials: 'include' },
+        session?.access_token // Pass token here
+      );
       setProjects(data); // Update the whole list
       setNewProjectName('');
       setShowCreateForm(false);
