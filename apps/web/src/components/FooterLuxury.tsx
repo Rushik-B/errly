@@ -42,18 +42,6 @@ export default function FooterLuxury() {
               style={{
                 fontWeight: 600
               }}
-              onClick={(e) => {
-                // e.preventDefault(); // <<< Make sure this line is removed or commented out
-
-                // Use 'any' cast to bypass TypeScript error for now
-                console.text('User clicked "See how it works" link', {
-                  component: 'FooterLuxury',
-                  href: '/coming-soon',
-                  timestamp: new Date().toISOString(),
-                });
-                
-                // The default navigation to href="/coming-soon" will happen automatically now
-              }}
             >
               See how it works
             </a>
