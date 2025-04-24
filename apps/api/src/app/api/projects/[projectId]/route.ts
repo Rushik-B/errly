@@ -1,21 +1,35 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getUserSession, corsHeaders } from '@/lib/authUtils'; // Import shared utilities
+import { getUserSession } from '@/lib/authUtils'; // Import only getUserSession
+
+// Define dashboard-specific CORS headers locally
+const dashboardCorsHeaders = {
+  'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080', // Use environment variable
+  'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS', // Adjust methods as needed for this route
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization', // Allow necessary headers for auth
+  'Access-Control-Allow-Credentials': 'true', // Allow credentials
+};
 
 // Handle OPTIONS preflight requests for CORS
-export async function OPTIONS(request: Request) {
-  return new NextResponse(null, { headers: corsHeaders });
+export async function OPTIONS(_request: NextRequest) {
+  return new NextResponse(null, { headers: dashboardCorsHeaders });
 }
 
 // GET /api/projects/[projectId] - Fetch a single project
 export async function GET(
-  request: Request,
-  { params }: { params: { projectId: string } }
+  request: NextRequest,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  context: any
 ) {
+  const { params } = context;
+  if (!params?.projectId) {
+    return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
+  }
   const session = await getUserSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+    // Use locally defined headers
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
   const userId = session.user.id;
   const projectId = params.projectId;
@@ -31,32 +45,46 @@ export async function GET(
     if (error) {
       console.error('Supabase query error (GET project):', error.message);
       if (error.code === 'PGRST116') { // PGRST116 = "Row not found"
-        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: corsHeaders });
+        // Use locally defined headers
+        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
       }
-      return NextResponse.json({ error: 'Failed to fetch project', details: error.message }, { status: 500, headers: corsHeaders });
+      // Use locally defined headers
+      return NextResponse.json({ error: 'Failed to fetch project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
     if (!project) {
-        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: corsHeaders });
+        // Use locally defined headers
+        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
+    // Use locally defined headers
+    return NextResponse.json(project, { headers: dashboardCorsHeaders });
 
-    return NextResponse.json(project, { headers: corsHeaders });
-
-  } catch (err: any) {
-    console.error('Unexpected error fetching project:', err.message);
-    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500, headers: corsHeaders });
+  } catch (err: unknown) { // Use unknown
+    let errorMessage = 'An unexpected error occurred';
+    if (err instanceof Error) {
+        errorMessage = err.message;
+    }
+    console.error('Unexpected error fetching project:', errorMessage);
+    // Use locally defined headers
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
 }
 
 // PUT /api/projects/[projectId] - Update a specific project
 export async function PUT(
-  request: Request,
-  { params }: { params: { projectId: string } }
+  request: NextRequest,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  context: any
 ) {
+  const { params } = context;
+  if (!params?.projectId) {
+    return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
+  }
   const session = await getUserSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+    // Use locally defined headers
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
   const userId = session.user.id;
   const projectId = params.projectId;
@@ -64,13 +92,16 @@ export async function PUT(
   let name: string;
   try {
     const body = await request.json();
-    name = body.name;
+    // Assuming body is an object, type it more specifically if possible
+    name = (body as { name?: string }).name ?? ''; 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json({ error: 'Project name is required for update' }, { status: 400, headers: corsHeaders });
+      // Use locally defined headers
+      return NextResponse.json({ error: 'Project name is required for update' }, { status: 400, headers: dashboardCorsHeaders });
     }
     name = name.trim(); // Trim whitespace
-  } catch (err) {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400, headers: corsHeaders });
+  } catch (_err: unknown) { // Prefix unused err, use unknown
+    // Use locally defined headers
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
   try {
@@ -85,32 +116,46 @@ export async function PUT(
     if (error) {
       console.error('Supabase update error:', error.message);
        if (error.code === 'PGRST116') { // PGRST116 = "Row not found"
-         return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: corsHeaders });
+         // Use locally defined headers
+         return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
        }
-      return NextResponse.json({ error: 'Failed to update project', details: error.message }, { status: 500, headers: corsHeaders });
+       // Use locally defined headers
+      return NextResponse.json({ error: 'Failed to update project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
     }
     
     if (!updatedProject) { // Should not happen if error is null, but good practice
-         return NextResponse.json({ error: 'Project not found after update attempt' }, { status: 404, headers: corsHeaders });
+         // Use locally defined headers
+         return NextResponse.json({ error: 'Project not found after update attempt' }, { status: 404, headers: dashboardCorsHeaders });
     }
+    // Use locally defined headers
+    return NextResponse.json(updatedProject, { headers: dashboardCorsHeaders });
 
-    return NextResponse.json(updatedProject, { headers: corsHeaders });
-
-  } catch (err: any) {
-    console.error('Unexpected error updating project:', err.message);
-    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500, headers: corsHeaders });
+  } catch (err: unknown) { // Use unknown
+    let errorMessage = 'An unexpected error occurred';
+    if (err instanceof Error) {
+        errorMessage = err.message;
+    }
+    console.error('Unexpected error updating project:', errorMessage);
+    // Use locally defined headers
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
 }
 
 // DELETE /api/projects/[projectId] - Delete a specific project
 export async function DELETE(
-  request: Request, // Request object might not be strictly needed for DELETE, but good practice
-  { params }: { params: { projectId: string } }
+  _request: NextRequest,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  context: any
 ) {
+  const { params } = context;
+  if (!params?.projectId) {
+    return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
+  }
   const session = await getUserSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+    // Use locally defined headers
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
   const userId = session.user.id;
   const projectId = params.projectId;
@@ -124,11 +169,13 @@ export async function DELETE(
 
     if (error) {
       console.error('Supabase delete error:', error.message);
-      return NextResponse.json({ error: 'Failed to delete project', details: error.message }, { status: 500, headers: corsHeaders });
+      // Use locally defined headers
+      return NextResponse.json({ error: 'Failed to delete project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
     if (count === 0) {
-       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: corsHeaders });
+       // Use locally defined headers
+       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
     
     if (count === null || count > 1) {
@@ -138,10 +185,16 @@ export async function DELETE(
     }
 
     // Return 204 No Content on successful deletion
-    return new NextResponse(null, { status: 204, headers: corsHeaders });
+    // Use locally defined headers (though 204 usually doesn't need CORS, doesn't hurt)
+    return new NextResponse(null, { status: 204, headers: dashboardCorsHeaders });
 
-  } catch (err: any) {
-    console.error('Unexpected error deleting project:', err.message);
-    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500, headers: corsHeaders });
+  } catch (err: unknown) { // Use unknown
+    let errorMessage = 'An unexpected error occurred';
+    if (err instanceof Error) {
+        errorMessage = err.message;
+    }
+    console.error('Unexpected error deleting project:', errorMessage);
+    // Use locally defined headers
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
 } 

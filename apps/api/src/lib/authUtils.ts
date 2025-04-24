@@ -37,7 +37,7 @@ export async function getUserSession(): Promise<Session | null> {
             try {
                 // console.log(`[API AuthUtil] Setting cookie: ${name}`);
                 cookieStore.set({ name, value, ...options });
-            } catch (error) {
+            } catch (_error: unknown) {
                 // The `set` method was called from a Server Component.
                 // This can be ignored if you have middleware refreshing
                 // user sessions.
@@ -48,7 +48,7 @@ export async function getUserSession(): Promise<Session | null> {
             try {
                 // console.log(`[API AuthUtil] Removing cookie: ${name}`);
                 cookieStore.set({ name, value: '', ...options });
-            } catch (error) {
+            } catch (_error: unknown) {
                 // The `delete` method was called from a Server Component.
                 // This can be ignored if you have middleware refreshing
                 // user sessions.
@@ -75,8 +75,12 @@ export async function getUserSession(): Promise<Session | null> {
     // });
 
     return session;
-  } catch (err) {
-    console.error('[API AuthUtil] Unexpected error getting session:', err);
+  } catch (err: unknown) {
+    let errorMessage = 'An unexpected error occurred';
+    if (err instanceof Error) {
+        errorMessage = err.message;
+    }
+    console.error('[API AuthUtil] Unexpected error getting session:', errorMessage);
     return null;
   }
 } 

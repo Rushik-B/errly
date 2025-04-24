@@ -28,7 +28,7 @@ const errorSchema = z.object({
 });
 
 // Handle OPTIONS preflight requests for CORS - Use permissive headers for SDK POST requests
-export async function OPTIONS(request: Request) {
+export async function OPTIONS(_request: Request) {
   // Respond to OPTIONS requests with permissive headers, allowing POST from any origin
   return new NextResponse(null, { headers: sdkCorsHeaders })
 }
@@ -75,10 +75,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders })
     }
     // If we reach here, the user owns the project
-  } catch (err: any) {
-    console.error('Unexpected error validating project ownership:', err.message)
+  } catch (err: unknown) {
+    let errorMessage = 'An unexpected error occurred during project validation';
+    if (err instanceof Error) {
+        errorMessage = err.message;
+    }
+    console.error('Unexpected error validating project ownership:', errorMessage)
     // Use dashboard-specific headers
-    return NextResponse.json({ error: 'An unexpected error occurred during project validation' }, { status: 500, headers: dashboardCorsHeaders })
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders })
   }
   // --- End Validate Project Ownership ---
 
@@ -114,10 +118,14 @@ export async function GET(request: NextRequest) {
       limit,
     }, { headers: dashboardCorsHeaders })
 
-  } catch (err: any) {
-    console.error('Unexpected error fetching errors:', err.message)
+  } catch (err: unknown) {
+    let errorMessage = 'An unexpected error occurred while fetching errors';
+     if (err instanceof Error) {
+        errorMessage = err.message;
+    }
+    console.error('Unexpected error fetching errors:', errorMessage)
     // Use dashboard-specific headers
-    return NextResponse.json({ error: 'An unexpected error occurred while fetching errors' }, { status: 500, headers: dashboardCorsHeaders })
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders })
   }
   // --- End Fetch Errors with Pagination ---
 }
@@ -130,7 +138,7 @@ export async function POST(request: Request) {
     let body: unknown; // Parse as unknown first
     try {
         body = await request.json();
-    } catch (jsonError) {
+    } catch (_jsonError: unknown) {
         // Handle JSON parsing errors specifically - Use SDK headers
         return NextResponse.json(
             { error: 'Invalid JSON payload' },
