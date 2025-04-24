@@ -145,14 +145,14 @@ export default function ProjectErrorsPage() {
       setFetchError(null);
       try {
         // Fetch project details (optional, for display)
-        const projectDetails = await fetchWithErrorHandling(`${API_BASE_URL}/projects/${projectId}`, {
+        const projectDetails = await fetchWithErrorHandling(`${API_BASE_URL}/api/projects/${projectId}`, {
             credentials: 'include',
         });
         setProject(projectDetails);
 
         // Fetch errors for the current page
         const errorsResponse: ErrorApiResponse = await fetchWithErrorHandling(
-            `${API_BASE_URL}/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`,
+            `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`,
             { credentials: 'include' }
         );
         setErrors(errorsResponse.data);
@@ -174,7 +174,7 @@ export default function ProjectErrorsPage() {
     };
 
     fetchData();
-  }, [user, projectId, currentPage, limit]); // Refetch when page changes
+  }, [user, projectId, currentPage, limit, API_BASE_URL]); // Added API_BASE_URL dependency
 
   // --- Realtime Subscription Setup ---
   useEffect(() => {
