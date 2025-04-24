@@ -116,6 +116,12 @@ export default function Dashboard() {
     const fetchProjects = async () => {
       setLoadingProjects(true);
       setError(null);
+      
+      // --- DEBUGGING: Log session and token ---
+      console.log('Attempting to fetch projects. Session:', session);
+      console.log('Using access token:', session.access_token);
+      // --- END DEBUGGING ---
+      
       try {
         // Pass the access token to the fetch function
         const data: Project[] = await fetchWithErrorHandling(
