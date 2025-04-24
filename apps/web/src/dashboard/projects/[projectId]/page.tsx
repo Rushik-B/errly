@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { getSupabaseClient } from '../../../lib/supabaseClient';
 import LogoutButton from '../../../ErrorModal/LogoutButton';
+import { useAuth } from '../../../context/AuthContext';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import styles from './projectErrors.module.css';
@@ -37,18 +38,34 @@ interface ErrorApiResponse {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-// Reusable fetch function (consider moving to a shared lib)
-async function fetchWithErrorHandling(url: string, options?: RequestInit): Promise<any> {
+// Update fetchWithErrorHandling to accept and use an auth token
+async function fetchWithErrorHandling(url: string, options?: RequestInit, token?: string | null): Promise<any> {
   let response;
+  
+  // Prepare headers, adding Authorization if token is provided
+  const headers = new Headers(options?.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  // Ensure credentials: 'include' is not conflicting if you mainly use tokens
+  // If your API relies solely on Bearer tokens, you might not need credentials: 'include'
+  const fetchOptions = {
+      ...options,
+      headers: headers,
+      // credentials: 'include' // Keep or remove based on whether API ALSO needs cookies
+  };
+
   try {
-    response = await fetch(url, options);
+    response = await fetch(url, fetchOptions);
   } catch (networkError: any) { console.error('Network error:', networkError); throw new Error(`Network error: ${networkError.message}`); }
 
   if (!response.ok) {
-    let errorPayload: any = { error: `Request failed: ${response.status}` };
+    let errorPayload: any = { error: `Request failed: ${response.status} ${response.statusText}` }; // Include statusText
     try { errorPayload = await response.json(); } catch (e) { }
     console.error('API Error:', errorPayload);
-    throw new Error(errorPayload.error || errorPayload.details || `API Error ${response.status}`);
+    // Use a more specific error message if available from payload
+    const errorMessage = errorPayload.error || errorPayload.message || errorPayload.details || `API Error ${response.status}`;
+    throw new Error(errorMessage);
   }
   try { return await response.json(); } catch (e: any) { console.error('JSON parse error:', e); throw new Error(`Failed to parse response: ${e.message}`); }
 }
@@ -99,10 +116,11 @@ export default function ProjectErrorsPage() {
   const params = useParams();
   const navigate = useNavigate();
   const supabase = getSupabaseClient();
+  const { user: authUser, session, loading: loadingAuth, signOut } = useAuth();
+  const location = useLocation();
 
   const projectId = params.projectId as string;
 
-  const [user, setUser] = useState<any>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [errors, setErrors] = useState<ApiError[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,50 +141,61 @@ export default function ProjectErrorsPage() {
   const [sortKey, setSortKey] = useState<'received_at' | 'message'>('received_at'); // Default sort by received_at
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Default newest first
 
-  // Authentication check
+  // Redirect if auth finished loading and there's no user
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-      if (userError || !currentUser) {
-        navigate('/login');
-      } else {
-        setUser(currentUser);
-      }
-    };
-    getUser();
-  }, [navigate, supabase.auth]);
+    if (!loadingAuth && !authUser) {
+      console.log('ProjectErrorsPage: Auth loaded, no user found. Redirecting to login.');
+      // Optionally pass current path for redirect back
+      const redirectPath = location.pathname + location.search;
+      navigate(`/login?redirect=${encodeURIComponent(redirectPath)}`, { replace: true });
+    }
+  }, [loadingAuth, authUser, navigate, location.pathname, location.search]);
 
   // Fetch project details and errors
   useEffect(() => {
-    if (!user || !projectId) return; // Wait for user and projectId
+    // Wait for auth to load and ensure we have a session and projectId
+    if (loadingAuth || !session || !projectId) {
+      // If auth is loading, reflect that in local loading state
+      setLoading(loadingAuth);
+      // If not loading auth but no session, clear errors/project and stop loading
+      if (!loadingAuth && !session) {
+          setProject(null);
+          setErrors([]);
+          setTotalCount(0);
+          setFetchError('No active session found.');
+          setLoading(false);
+      }
+      return; 
+    }
 
     const fetchData = async () => {
       setLoading(true);
       setFetchError(null);
       try {
-        // Fetch project details (optional, for display)
-        const projectDetails = await fetchWithErrorHandling(`${API_BASE_URL}/api/projects/${projectId}`, {
-            credentials: 'include',
-        });
+        // Fetch project details, passing the access token
+        const projectDetails = await fetchWithErrorHandling(
+            `${API_BASE_URL}/api/projects/${projectId}`, 
+            { /* options if needed */ }, 
+            session.access_token // Pass token
+        );
         setProject(projectDetails);
 
-        // Fetch errors for the current page
+        // Fetch errors for the current page, passing the access token
         const errorsResponse: ErrorApiResponse = await fetchWithErrorHandling(
-            `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`,
-            { credentials: 'include' }
+            `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`, 
+            { /* options if needed */ }, 
+            session.access_token // Pass token
         );
         setErrors(errorsResponse.data);
         setTotalCount(errorsResponse.totalCount);
-        // Ensure currentPage and limit align with response if needed
-        // setCurrentPage(errorsResponse.page);
-        // setLimit(errorsResponse.limit);
 
       } catch (err: any) {
         console.error('Error fetching project data or errors:', err);
         setFetchError(err.message || 'Failed to load data.');
-        // Handle specific errors like 404 (Project not found/access denied)
-        if (err.message?.includes('404') || err.message?.includes('not found')) {
-            // Optionally redirect or show specific message
+        // Handle 401 specifically if needed
+        if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+            // Maybe trigger sign out or show specific message?
+            // signOut(); // Example: Force sign out on persistent 401
         }
       } finally {
         setLoading(false);
@@ -174,12 +203,13 @@ export default function ProjectErrorsPage() {
     };
 
     fetchData();
-  }, [user, projectId, currentPage, limit, API_BASE_URL]); // Added API_BASE_URL dependency
+    // Add loadingAuth and session to dependency array
+  }, [loadingAuth, session, projectId, currentPage, limit, API_BASE_URL, navigate]); 
 
   // --- Realtime Subscription Setup ---
   useEffect(() => {
-    // Ensure we have a user and projectId before subscribing
-    if (!user || !projectId) return;
+    // Depend on session instead of local user state
+    if (!session || !projectId) return;
 
     console.log(`[Realtime] Setting up subscription for project: ${projectId}`);
 
@@ -259,7 +289,7 @@ export default function ProjectErrorsPage() {
       }
     };
 
-  }, [supabase, projectId, user]); // Dependencies: Re-run if supabase client, projectId, or user changes
+  }, [supabase, projectId, session]); // Dependencies: Re-run if supabase client, projectId, or session changes
   // --- End Realtime Subscription Setup ---
 
   // --- Filtered Errors --- 
@@ -364,7 +394,7 @@ export default function ProjectErrorsPage() {
            <span className={styles.logoText}>Errly</span>
          </Link>
          <div className={styles.headerRight}>
-           {user && <span className={styles.userEmail}>{user.email}</span>}
+           {authUser && <span className={styles.userEmail}>{authUser.email}</span>}
            <LogoutButton />
          </div>
        </header>
