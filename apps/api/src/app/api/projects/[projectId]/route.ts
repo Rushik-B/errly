@@ -2,6 +2,19 @@ import { NextResponse, NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getUserSession } from '@/lib/authUtils'; // Import only getUserSession
 
+// Restore dashboardCorsHeaders constant
+const dashboardCorsHeaders = {
+  'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080',
+  'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
+};
+
+// Restore OPTIONS handler
+export async function OPTIONS(_request: NextRequest) {
+  return new NextResponse(null, { headers: dashboardCorsHeaders });
+}
+
 // GET /api/projects/[projectId] - Fetch a single project
 export async function GET(
   request: NextRequest,
@@ -10,12 +23,14 @@ export async function GET(
 ) {
   const { params } = context;
   if (!params?.projectId) {
-    return NextResponse.json({ error: 'Missing project ID' }, { status: 400 });
+    // Add back explicit headers
+    return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
   }
   const session = await getUserSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Add back explicit headers
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
   const userId = session.user.id;
   const projectId = params.projectId;
@@ -31,15 +46,19 @@ export async function GET(
     if (error) {
       console.error('Supabase query error (GET project):', error.message);
       if (error.code === 'PGRST116') { // PGRST116 = "Row not found"
-        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
+        // Add back explicit headers
+        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
       }
-      return NextResponse.json({ error: 'Failed to fetch project', details: error.message }, { status: 500 });
+      // Add back explicit headers
+      return NextResponse.json({ error: 'Failed to fetch project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
     if (!project) {
-        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
+        // Add back explicit headers
+        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
-    return NextResponse.json(project);
+    // Add back explicit headers
+    return NextResponse.json(project, { headers: dashboardCorsHeaders });
 
   } catch (err: unknown) { // Use unknown
     let errorMessage = 'An unexpected error occurred';
@@ -47,7 +66,8 @@ export async function GET(
         errorMessage = err.message;
     }
     console.error('Unexpected error fetching project:', errorMessage);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    // Add back explicit headers
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
 }
 
@@ -59,12 +79,14 @@ export async function PUT(
 ) {
   const { params } = context;
   if (!params?.projectId) {
-    return NextResponse.json({ error: 'Missing project ID' }, { status: 400 });
+    // Add back explicit headers
+    return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
   }
   const session = await getUserSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Add back explicit headers
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
   const userId = session.user.id;
   const projectId = params.projectId;
@@ -75,11 +97,13 @@ export async function PUT(
     // Assuming body is an object, type it more specifically if possible
     name = (body as { name?: string }).name ?? ''; 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json({ error: 'Project name is required for update' }, { status: 400 });
+      // Add back explicit headers
+      return NextResponse.json({ error: 'Project name is required for update' }, { status: 400, headers: dashboardCorsHeaders });
     }
     name = name.trim(); // Trim whitespace
   } catch (_err: unknown) { // Prefix unused err, use unknown
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    // Add back explicit headers
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
   try {
@@ -94,15 +118,19 @@ export async function PUT(
     if (error) {
       console.error('Supabase update error:', error.message);
        if (error.code === 'PGRST116') { // PGRST116 = "Row not found"
-         return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
+         // Add back explicit headers
+         return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
        }
-      return NextResponse.json({ error: 'Failed to update project', details: error.message }, { status: 500 });
+      // Add back explicit headers
+      return NextResponse.json({ error: 'Failed to update project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
     }
     
     if (!updatedProject) { // Should not happen if error is null, but good practice
-         return NextResponse.json({ error: 'Project not found after update attempt' }, { status: 404 });
+         // Add back explicit headers
+         return NextResponse.json({ error: 'Project not found after update attempt' }, { status: 404, headers: dashboardCorsHeaders });
     }
-    return NextResponse.json(updatedProject);
+    // Add back explicit headers
+    return NextResponse.json(updatedProject, { headers: dashboardCorsHeaders });
 
   } catch (err: unknown) { // Use unknown
     let errorMessage = 'An unexpected error occurred';
@@ -110,7 +138,8 @@ export async function PUT(
         errorMessage = err.message;
     }
     console.error('Unexpected error updating project:', errorMessage);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    // Add back explicit headers
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
 }
 
@@ -122,12 +151,14 @@ export async function DELETE(
 ) {
   const { params } = context;
   if (!params?.projectId) {
-    return NextResponse.json({ error: 'Missing project ID' }, { status: 400 });
+    // Add back explicit headers
+    return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
   }
   const session = await getUserSession();
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Add back explicit headers
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
   const userId = session.user.id;
   const projectId = params.projectId;
@@ -141,18 +172,21 @@ export async function DELETE(
 
     if (error) {
       console.error('Supabase delete error:', error.message);
-      return NextResponse.json({ error: 'Failed to delete project', details: error.message }, { status: 500 });
+      // Add back explicit headers
+      return NextResponse.json({ error: 'Failed to delete project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
     if (count === 0) {
-       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
+       // Add back explicit headers
+       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
     
     if (count === null || count > 1) {
         console.warn(`[API] Unexpected delete count: ${count} for project ${projectId} by user ${userId}`);
     }
 
-    return new NextResponse(null, { status: 204 });
+    // Add back explicit headers
+    return new NextResponse(null, { status: 204, headers: dashboardCorsHeaders });
 
   } catch (err: unknown) { // Use unknown
     let errorMessage = 'An unexpected error occurred';
@@ -160,6 +194,7 @@ export async function DELETE(
         errorMessage = err.message;
     }
     console.error('Unexpected error deleting project:', errorMessage);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    // Add back explicit headers
+    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
 } 
