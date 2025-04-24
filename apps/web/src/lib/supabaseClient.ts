@@ -10,5 +10,17 @@ export function createClient() {
     throw new Error("Supabase URL or Anon Key missing in .env file (must be prefixed with VITE_)");
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey)
+  // Add cookieOptions for cross-subdomain authentication
+  return createBrowserClient(
+    supabaseUrl, 
+    supabaseAnonKey,
+    {
+      cookieOptions: {
+        domain: '.vercel.app', // Set cookie accessible for all vercel.app subdomains
+        path: '/',
+        sameSite: 'lax', // Consider 'lax' or 'strict'. 'none' requires secure=true and careful consideration.
+        secure: true      // Required for SameSite=None, recommended for Lax/Strict too
+      }
+    }
+  )
 } 

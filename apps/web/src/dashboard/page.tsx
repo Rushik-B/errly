@@ -118,8 +118,8 @@ export default function Dashboard() {
       setError(null);
       
       // --- DEBUGGING: Log session and token ---
-      console.log('Attempting to fetch projects. Session:', session);
-      console.log('Using access token:', session.access_token);
+      // console.log('Attempting to fetch projects. Session:', session);
+      // console.log('Using access token:', session.access_token);
       // --- END DEBUGGING ---
       
       try {
