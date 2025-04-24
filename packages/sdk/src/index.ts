@@ -5,7 +5,7 @@
     // import { fetch } from 'undici';
 
     let key: string = '';
-    const defaultApiEndpoint = 'https://errly.vercel.app/api/errors'; // Default for local dev
+    const defaultApiEndpoint = 'https://errly-api.vercel.app/api/errors'; // Default for local dev
     // This holds the API key, scoped to this module.
     // In a real-world scenario, you might want a more robust way
     // to manage this state, but for an MVP, this is fine.
