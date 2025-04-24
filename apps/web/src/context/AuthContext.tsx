@@ -25,19 +25,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // Remove the explicit getSession() call.
+    // Rely solely on onAuthStateChange for initial state and updates.
+    // setLoading(true); // Ensure loading starts as true
 
-    // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        if (loading) setLoading(false); // Ensure loading is set to false after first check
+        // Set loading to false once the listener fires for the first time,
+        // indicating the initial auth state has been determined.
+        setLoading(false); 
       }
     );
 
