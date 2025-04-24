@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { supabaseServiceClient } from '@/lib/supabaseClient'
-import { getUserSession } from '@/lib/authUtils'
+import { getUserFromToken } from '@/lib/authUtils'
 import { z } from 'zod' // Import Zod
 
 // Define the Zod schema for the request body
@@ -14,12 +14,15 @@ const errorSchema = z.object({
 
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
 export async function GET(request: NextRequest) {
-  const session = await getUserSession()
+  // Use JWT validation
+  const user = await getUserFromToken(request);
 
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) { // Check for user object
+    // Return 401 (Headers should be handled by vercel.json if configured)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const userId = session.user.id
+  // Use user.id directly
+  const userId = user.id;
 
   // Extract query parameters
   const { searchParams } = new URL(request.url)
