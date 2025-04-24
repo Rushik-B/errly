@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { createClient } from '../../lib/supabaseClient'
+import { getSupabaseClient } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import { LogOut } from 'lucide-react'
 
@@ -23,8 +23,8 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState<string | null>(null)
   
   const navigate = useNavigate()
-  const supabase = createClient()
   const { user, signOut, loading: loadingAuth } = useAuth()
+  const supabase = getSupabaseClient()
 
   // Format phone number input
   const formatPhoneNumber = (value: string | null | undefined): string => {
