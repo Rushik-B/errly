@@ -105,7 +105,7 @@ export default function Dashboard() {
       setLoadingProjects(true);
       setError(null);
       try {
-        const data: Project[] = await fetchWithErrorHandling(`${API_BASE_URL}/projects`, {
+        const data: Project[] = await fetchWithErrorHandling('https://errly-api.vercel.app/api/projects', {
           credentials: 'include',
         });
         setProjects(data);
@@ -128,7 +128,7 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      const newProjectData = await fetchWithErrorHandling(`${API_BASE_URL}/projects`, {
+      const newProjectData = await fetchWithErrorHandling('https://errly-api.vercel.app/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,7 +138,7 @@ export default function Dashboard() {
       });
 
       // Fetch projects again to get the new project including its generated API key
-      const data: Project[] = await fetchWithErrorHandling(`${API_BASE_URL}/projects`, {
+      const data: Project[] = await fetchWithErrorHandling('https://errly-api.vercel.app/api/projects', {
         credentials: 'include',
       });
       setProjects(data); // Update the whole list
