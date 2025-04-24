@@ -149,17 +149,17 @@ export async function GET(request: NextRequest) {
 
 // POST /api/errors - Record a new error (using API Key authentication)
 export async function POST(request: Request) {
-  console.log("--- Received request in /api/errors ---")
+  console.log("--- Received request in /api/errors ---");
   try {
     // 1. Parse the incoming request body
-    let body: unknown; // Parse as unknown first
+    let body: unknown;
     try {
         body = await request.json();
     } catch (_jsonError: unknown) {
-        // Remove explicit headers
+        // Add SDK headers to response
         return NextResponse.json(
             { error: 'Invalid JSON payload' },
-            { status: 400 } 
+            { status: 400, headers: sdkCorsHeaders } 
         );
     }
 
@@ -168,34 +168,32 @@ export async function POST(request: Request) {
 
     if (!validationResult.success) {
       console.error("Request body validation failed:", validationResult.error.flatten());
-      // Remove explicit headers
+      // Add SDK headers to response
       return NextResponse.json(
         { error: 'Invalid request body', details: validationResult.error.flatten().fieldErrors },
-        { status: 400 } 
+        { status: 400, headers: sdkCorsHeaders } 
       );
     }
 
-    // Use the validated data
     const { apiKey, message, stackTrace, metadata } = validationResult.data;
 
     // 2. Validate the API Key
-    // Query the projects table to find a project with the given apiKey
     const { data: projectData, error: projectError } = await supabaseServiceClient
       .from('projects')
-      .select('id') // We only need the id to link the error
+      .select('id')
       .eq('api_key', apiKey)
-      .single() // Expect only one project per API key
+      .single();
 
     if (projectError || !projectData) {
-      console.error('API Key validation error:', projectError)
-      // Remove explicit headers
+      console.error('API Key validation error:', projectError);
+      // Add SDK headers to response
       return NextResponse.json(
         { error: 'Invalid or unknown API Key' },
-        { status: 401 } 
-      )
+        { status: 401, headers: sdkCorsHeaders } 
+      );
     }
 
-    const projectId = projectData.id
+    const projectId = projectData.id;
 
     // 3. Insert the error into the database
     const { data: errorData, error: insertError } = await supabaseServiceClient
@@ -208,35 +206,35 @@ export async function POST(request: Request) {
           metadata: metadata,
         },
       ])
-      .select()
+      .select();
 
     if (insertError) {
-      console.error('Error inserting data into Supabase:', insertError)
-      // Remove explicit headers
+      console.error('Error inserting data into Supabase:', insertError);
+      // Add SDK headers to response
       return NextResponse.json(
         { error: 'Failed to record error', details: insertError.message },
-        { status: 500 } 
-      )
+        { status: 500, headers: sdkCorsHeaders } 
+      );
     }
 
     // 4. Return a success response
-    console.log('Successfully recorded error:', errorData)
+    console.log('Successfully recorded error:', errorData);
+    // Add SDK headers to response
     return NextResponse.json(
       { message: 'Error recorded successfully', data: errorData },
-      { status: 201 } 
-    )
+      { status: 201, headers: sdkCorsHeaders }
+    );
 
-  } catch (error) {
-    console.error('Unhandled error in POST /api/errors:', error)
-    let errorMessage = 'An unexpected error occurred'
+  } catch (error: unknown) {
+    console.error('Unhandled error in POST /api/errors:', error);
+    let errorMessage = 'An unexpected error occurred';
     if (error instanceof Error) {
-      errorMessage = error.message
+      errorMessage = error.message;
     }
-
-    // Remove explicit headers
+    // Add SDK headers to response
     return NextResponse.json(
       { error: errorMessage },
-      { status: 500 } 
-    )
+      { status: 500, headers: sdkCorsHeaders } 
+    );
   }
 } 
