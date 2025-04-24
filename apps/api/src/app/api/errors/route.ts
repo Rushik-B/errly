@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { supabaseServiceClient } from '@/lib/supabaseClient'
-import { getUserSession, corsHeaders } from '@/lib/authUtils'
+import { getUserSession } from '@/lib/authUtils'
 import { z } from 'zod' // Import Zod
+
+// Define dashboard-specific CORS headers (for GET requests)
+const dashboardCorsHeaders = {
+  'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080', // Use environment variable
+  'Access-Control-Allow-Methods': 'GET, OPTIONS', // Only allow GET/OPTIONS for dashboard requests here
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization', // Allow necessary headers for auth
+  'Access-Control-Allow-Credentials': 'true', // Allow credentials
+};
+
+// Define permissive CORS headers for SDK submissions (POST) and OPTIONS
+const sdkCorsHeaders = {
+  'Access-Control-Allow-Origin': '*', // Allow any origin
+  'Access-Control-Allow-Methods': 'POST, OPTIONS', // Allow POST/OPTIONS for error submission
+  'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key', // Allow content type and API key header
+};
 
 // Define the Zod schema for the request body
 const errorSchema = z.object({
@@ -12,9 +27,10 @@ const errorSchema = z.object({
   metadata: z.record(z.unknown()).optional(), // Optional object with unknown values
 });
 
-// Handle OPTIONS preflight requests for CORS
+// Handle OPTIONS preflight requests for CORS - Use permissive headers for SDK POST requests
 export async function OPTIONS(request: Request) {
-  return new NextResponse(null, { headers: corsHeaders })
+  // Respond to OPTIONS requests with permissive headers, allowing POST from any origin
+  return new NextResponse(null, { headers: sdkCorsHeaders })
 }
 
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
@@ -22,7 +38,8 @@ export async function GET(request: NextRequest) {
   const session = await getUserSession()
 
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders })
+    // Use dashboard-specific headers for GET responses
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders })
   }
   const userId = session.user.id
 
@@ -33,7 +50,8 @@ export async function GET(request: NextRequest) {
   const limitParam = searchParams.get('limit')
 
   if (!projectId) {
-    return NextResponse.json({ error: 'Missing required query parameter: projectId' }, { status: 400, headers: corsHeaders })
+    // Use dashboard-specific headers
+    return NextResponse.json({ error: 'Missing required query parameter: projectId' }, { status: 400, headers: dashboardCorsHeaders })
   }
 
   // --- Validate Project Ownership ---
@@ -47,17 +65,20 @@ export async function GET(request: NextRequest) {
 
     if (projectError) {
       console.error('Error validating project ownership:', projectError.message)
-      return NextResponse.json({ error: 'Failed to validate project ownership', details: projectError.message }, { status: 500, headers: corsHeaders })
+      // Use dashboard-specific headers
+      return NextResponse.json({ error: 'Failed to validate project ownership', details: projectError.message }, { status: 500, headers: dashboardCorsHeaders })
     }
 
     if (!project) {
       // If project is null, it means either it doesn't exist or doesn't belong to the user
-      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: corsHeaders })
+      // Use dashboard-specific headers
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders })
     }
     // If we reach here, the user owns the project
   } catch (err: any) {
     console.error('Unexpected error validating project ownership:', err.message)
-    return NextResponse.json({ error: 'An unexpected error occurred during project validation' }, { status: 500, headers: corsHeaders })
+    // Use dashboard-specific headers
+    return NextResponse.json({ error: 'An unexpected error occurred during project validation' }, { status: 500, headers: dashboardCorsHeaders })
   }
   // --- End Validate Project Ownership ---
 
@@ -67,7 +88,8 @@ export async function GET(request: NextRequest) {
   const offset = (page - 1) * limit
 
   if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
-    return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400, headers: corsHeaders })
+    // Use dashboard-specific headers
+    return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400, headers: dashboardCorsHeaders })
   }
 
   try {
@@ -80,19 +102,22 @@ export async function GET(request: NextRequest) {
 
     if (errorsError) {
       console.error('Error fetching errors:', errorsError.message)
-      return NextResponse.json({ error: 'Failed to fetch errors', details: errorsError.message }, { status: 500, headers: corsHeaders })
+      // Use dashboard-specific headers
+      return NextResponse.json({ error: 'Failed to fetch errors', details: errorsError.message }, { status: 500, headers: dashboardCorsHeaders })
     }
 
+    // Use dashboard-specific headers for the successful response
     return NextResponse.json({
       data: errors ?? [],
       totalCount: count ?? 0,
       page,
       limit,
-    }, { headers: corsHeaders })
+    }, { headers: dashboardCorsHeaders })
 
   } catch (err: any) {
     console.error('Unexpected error fetching errors:', err.message)
-    return NextResponse.json({ error: 'An unexpected error occurred while fetching errors' }, { status: 500, headers: corsHeaders })
+    // Use dashboard-specific headers
+    return NextResponse.json({ error: 'An unexpected error occurred while fetching errors' }, { status: 500, headers: dashboardCorsHeaders })
   }
   // --- End Fetch Errors with Pagination ---
 }
@@ -106,10 +131,10 @@ export async function POST(request: Request) {
     try {
         body = await request.json();
     } catch (jsonError) {
-        // Handle JSON parsing errors specifically
+        // Handle JSON parsing errors specifically - Use SDK headers
         return NextResponse.json(
             { error: 'Invalid JSON payload' },
-            { status: 400, headers: corsHeaders }
+            { status: 400, headers: sdkCorsHeaders } // Use SDK headers
         );
     }
 
@@ -117,24 +142,16 @@ export async function POST(request: Request) {
     const validationResult = errorSchema.safeParse(body);
 
     if (!validationResult.success) {
-      // If validation fails, return a 400 error with details
+      // If validation fails, return a 400 error with details - Use SDK headers
       console.error("Request body validation failed:", validationResult.error.flatten());
       return NextResponse.json(
         { error: 'Invalid request body', details: validationResult.error.flatten().fieldErrors },
-        { status: 400, headers: corsHeaders }
+        { status: 400, headers: sdkCorsHeaders } // Use SDK headers
       );
     }
 
     // Use the validated data
     const { apiKey, message, stackTrace, metadata } = validationResult.data;
-
-    // Basic validation (already covered by Zod, but kept for clarity/defense-in-depth)
-    // if (!apiKey || !message) { // This check is now handled by Zod
-    //   return NextResponse.json(
-    //     { error: 'Missing required fields: apiKey and message' },
-    //     { status: 400, headers: corsHeaders }
-    //   );
-    // }
 
     // 2. Validate the API Key
     // Query the projects table to find a project with the given apiKey
@@ -146,9 +163,10 @@ export async function POST(request: Request) {
 
     if (projectError || !projectData) {
       console.error('API Key validation error:', projectError)
+      // Use SDK headers
       return NextResponse.json(
         { error: 'Invalid or unknown API Key' },
-        { status: 401, headers: corsHeaders } // Unauthorized
+        { status: 401, headers: sdkCorsHeaders } // Unauthorized - Use SDK headers
       )
     }
 
@@ -169,17 +187,18 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error('Error inserting data into Supabase:', insertError)
+      // Use SDK headers
       return NextResponse.json(
         { error: 'Failed to record error', details: insertError.message },
-        { status: 500, headers: corsHeaders } // Internal Server Error
+        { status: 500, headers: sdkCorsHeaders } // Internal Server Error - Use SDK headers
       )
     }
 
-    // 4. Return a success response
+    // 4. Return a success response - Use SDK headers
     console.log('Successfully recorded error:', errorData)
     return NextResponse.json(
       { message: 'Error recorded successfully', data: errorData },
-      { status: 201, headers: corsHeaders } // Created
+      { status: 201, headers: sdkCorsHeaders } // Created - Use SDK headers
     )
 
   } catch (error) {
@@ -188,12 +207,11 @@ export async function POST(request: Request) {
     if (error instanceof Error) {
       errorMessage = error.message
     }
-    // Remove specific JSON error handling here as it's handled earlier
-    // if (error instanceof SyntaxError) { ... }
 
+    // Use SDK headers for generic error responses in POST
     return NextResponse.json(
       { error: errorMessage },
-      { status: 500, headers: corsHeaders } // Internal Server Error
+      { status: 500, headers: sdkCorsHeaders } // Internal Server Error - Use SDK headers
     )
   }
 } 

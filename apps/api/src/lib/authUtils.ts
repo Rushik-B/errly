@@ -2,14 +2,15 @@ import { cookies } from 'next/headers';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import type { Session } from '@supabase/supabase-js';
 
-// CORS Headers - Adjust origin as needed for production
+// CORS Headers object removed as headers are now handled per-route
+/*
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': 'http://localhost:8080', // Allow frontend origin (replace with * or your specific frontend URL in production)
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', // Allow relevant methods
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization', // Allow necessary headers
-  'Access-Control-Allow-Credentials': 'true', // Allow credentials (cookies)
+  'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080', 
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
 };
-
+*/
 
 // Helper function to get user session from server components/API routes
 export async function getUserSession(): Promise<Session | null> {
