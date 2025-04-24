@@ -18,7 +18,7 @@ export function createClient() {
       cookieOptions: {
         domain: '.vercel.app', // Set cookie accessible for all vercel.app subdomains
         path: '/',
-        sameSite: 'lax', // Consider 'lax' or 'strict'. 'none' requires secure=true and careful consideration.
+        sameSite: 'none', // Change from 'lax' to 'none' for potentially better cross-site/incognito handling
         secure: true      // Required for SameSite=None, recommended for Lax/Strict too
       }
     }
