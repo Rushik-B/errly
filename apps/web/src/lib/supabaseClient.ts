@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js' // Import standard client
 
 export function createClient() {
   // Use import.meta.env for Vite environment variables
@@ -10,17 +10,26 @@ export function createClient() {
     throw new Error("Supabase URL or Anon Key missing in .env file (must be prefixed with VITE_)");
   }
 
-  // Add cookieOptions for cross-subdomain authentication
-  return createBrowserClient(
-    supabaseUrl, 
+  // Use the standard browser client
+  return createSupabaseClient(
+    supabaseUrl,
     supabaseAnonKey,
     {
+      auth: { // Configure auth options here
+        persistSession: true, // Explicitly enable session persistence (default is true)
+        autoRefreshToken: true, // Explicitly enable token refreshing (default is true)
+        detectSessionInUrl: true, // Handle session restoration from URL (useful for email magic links etc.)
+      },
+      // Removing cookieOptions for now, as standard client primarily uses localStorage.
+      // We can re-add if specific cookie control is needed later.
+      /*
       cookieOptions: {
-        domain: '.vercel.app', // Set cookie accessible for all vercel.app subdomains
+        domain: '.errly.dev', // Correct domain
         path: '/',
-        sameSite: 'none', // Change from 'lax' to 'none' for potentially better cross-site/incognito handling
-        secure: true      // Required for SameSite=None, recommended for Lax/Strict too
+        sameSite: 'Lax', // Change back to Lax
+        secure: true
       }
+      */
     }
   )
 } 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, FormEvent } from 'react';
 import { createClient } from '../lib/supabaseClient';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ClipboardIcon, CheckIcon, PlusIcon, EyeIcon, EyeSlashIcon, ListBulletIcon } from '@heroicons/react/24/outline';
 import { LogOut } from 'lucide-react';
@@ -83,6 +83,7 @@ export default function Dashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   
   const navigate = useNavigate();
+  const location = useLocation();
   const supabase = createClient();
   const { user: authUser, signOut, loading: loadingAuth, session } = useAuth();
 
@@ -96,38 +97,39 @@ export default function Dashboard() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Fetch user session (Simplified: relies on useAuth)
+  // Redirect if not authenticated after loading is complete
   useEffect(() => {
-    setLoadingUser(loadingAuth); // Sync loading state
-    if (!loadingAuth && !authUser) {
-      console.error('No authenticated user found, redirecting to login.');
-      navigate('/login');
-    } else if (authUser) {
-      setUser(authUser); // Set local user state if needed elsewhere, though authUser can be used directly
+    if (!loadingAuth) {
+        if (!authUser) {
+            console.log('Auth state loaded, user not found. Redirecting to login.');
+            // Construct the redirect path including search params
+            const redirectPath = location.pathname + location.search;
+            // Navigate to login, passing the original path as a query parameter
+            navigate(`/login?redirect=${encodeURIComponent(redirectPath)}`, { replace: true });
+        } else {
+            setUser(authUser);
+            setLoadingUser(false);
+        }
+    } else {
+        setLoadingUser(true);
     }
-  }, [authUser, loadingAuth, navigate]);
+  }, [authUser, loadingAuth, navigate, location.pathname, location.search]);
 
-  // Fetch projects when authUser is loaded
+  // Fetch projects only when authenticated and session is available
   useEffect(() => {
-    // Use authUser directly here
-    // Ensure auth is not loading AND session exists before fetching
-    if (loadingAuth || !session) return; 
+    if (loadingAuth || !session) {
+      setLoadingProjects(false);
+      return;
+    }
 
     const fetchProjects = async () => {
       setLoadingProjects(true);
       setError(null);
-      
-      // --- DEBUGGING: Log session and token ---
-      // console.log('Attempting to fetch projects. Session:', session);
-      // console.log('Using access token:', session.access_token);
-      // --- END DEBUGGING ---
-      
       try {
-        // Pass the access token to the fetch function
         const data: Project[] = await fetchWithErrorHandling(
-          'https://errly-api.vercel.app/api/projects', 
-          {}, // Pass empty options object if no other options needed
-          session.access_token // Use session.access_token directly now we know session is not null
+          'https://errly-api.vercel.app/api/projects',
+          {},
+          session.access_token
         );
         setProjects(data);
       } catch (err: any) {
@@ -139,19 +141,18 @@ export default function Dashboard() {
     };
 
     fetchProjects();
-  }, [loadingAuth, session]); // Depend on loadingAuth and session
+  }, [loadingAuth, session]);
 
   const handleCreateProject = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newProjectName.trim() || isCreatingProject) return;
+    if (!newProjectName.trim() || isCreatingProject || !session) return;
 
     setIsCreatingProject(true);
     setError(null);
 
     try {
-      // Pass token for creating project
       const newProjectData = await fetchWithErrorHandling(
-        'https://errly-api.vercel.app/api/projects', 
+        'https://errly-api.vercel.app/api/projects',
         {
           method: 'POST',
           headers: {
@@ -159,17 +160,15 @@ export default function Dashboard() {
           },
           body: JSON.stringify({ name: newProjectName.trim() }),
         },
-        session?.access_token // Keep optional chaining here just in case
+        session.access_token
       );
 
-      // Fetch projects again to get the new project including its generated API key
-      // Pass token for refetching projects
       const data: Project[] = await fetchWithErrorHandling(
-        'https://errly-api.vercel.app/api/projects', 
+        'https://errly-api.vercel.app/api/projects',
         {},
-        session?.access_token // Keep optional chaining here
+        session.access_token
       );
-      setProjects(data); // Update the whole list
+      setProjects(data);
       setNewProjectName('');
       setShowCreateForm(false);
 
@@ -181,45 +180,23 @@ export default function Dashboard() {
     }
   };
 
-  // Function to handle copying API key
   const handleCopyKey = (key: string, projectId: string) => {
     if (!navigator.clipboard) {
-      setError('Clipboard API not available in this browser or context.');
-      console.error('Clipboard API not available.');
+      setError('Clipboard API not available.');
       return;
     }
-    
     navigator.clipboard.writeText(key).then(() => {
-      setCopiedKeyId(projectId); // Set the ID of the project whose key was copied
-      setTimeout(() => setCopiedKeyId(null), 2000); // Reset after 2 seconds
+      setCopiedKeyId(projectId);
+      setTimeout(() => setCopiedKeyId(null), 2000);
     }).catch(err => {
-      // Log the specific error
-      console.error('Failed to copy API key due to error:', err);
-      // Provide more specific feedback if possible
-      let errorMsg = 'Failed to copy API key.';
-      if (err instanceof DOMException && err.name === 'NotAllowedError') {
-        errorMsg = 'Clipboard write permission denied. Ensure the page has focus and try again.';
-      } else if (err instanceof Error) {
-        errorMsg = `Failed to copy: ${err.message}`;
-      }
-      setError(errorMsg);
-      setCopiedKeyId(null); // Ensure checkmark isn't shown on error
+      console.error('Failed to copy API key:', err);
+      setError('Failed to copy API key.');
     });
   };
 
-  // Function to toggle API key visibility
   const toggleApiKeyVisibility = (projectId: string) => {
     setVisibleApiKeyId(prevId => (prevId === projectId ? null : projectId));
   };
-
-  // Use loadingAuth instead of loadingUser for the main loading check
-  if (loadingAuth) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#0a0a0f]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-white"></div>
-      </div>
-    );
-  }
 
   // Dynamic navbar classes from NavBar.tsx
   const navWrapperClasses = scrolled
@@ -227,6 +204,18 @@ export default function Dashboard() {
     : 'w-full px-8';
   // Add listGap for the links
   const listGap = scrolled ? 'gap-4' : 'gap-6';
+
+  if (loadingAuth) {
+    return (
+       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-background to-background-muted">
+         <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-white"></div>
+       </div>
+    );
+  }
+
+  if (!authUser) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen text-white bg-[url('/lovable-uploads/dash.png')] bg-cover bg-center bg-fixed relative">

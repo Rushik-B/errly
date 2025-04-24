@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { createClient } from '../lib/supabaseClient'; // Use the local client
+import { createClient } from '../lib/supabaseClient'; // Path is correct
 
 // Define the shape of the context data
 interface AuthContextType {

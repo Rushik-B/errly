@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useCallback, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { createClient } from '../lib/supabaseClient'
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
 import type { Value } from 'react-phone-number-input'
@@ -80,15 +80,31 @@ const AuthForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
 
   const navigate = useNavigate()
+  const location = useLocation()
   const supabase = createClient()
+
+  // State to hold the redirect path
+  const [redirectPath, setRedirectPath] = useState<string | null>(null)
+
+  // Extract redirect path from URL query params on mount
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const redirect = params.get('redirect')
+    if (redirect) {
+      console.log('Login page found redirect param:', redirect) // Debugging
+      setRedirectPath(redirect)
+    }
+  }, [location.search])
 
   // Memoize the phone change handler
   const handlePhoneChange = useCallback((value: Value | undefined) => {
-    setPhone(value);
-  }, []); // setPhone is stable, dependency array can be empty
+    setPhone(value)
+  }, [])
 
   /* -------------------------------------------------- */
-  const oauthRedirectTo = window.location.origin;
+  // const oauthRedirectTo = window.location.origin; // Keep this if needed for OAuth
+  // Or, if OAuth should also redirect back to the original page:
+  const oauthRedirectTo = redirectPath ? `${window.location.origin}${redirectPath}` : window.location.origin
 
   /* -------------------------------------------------- */
   const handleSignUp = async (e: React.FormEvent) => {
@@ -116,7 +132,6 @@ const AuthForm: React.FC = () => {
       setPhone(undefined)
       setAgree(false)
       setView('sign_in')
-      navigate('/');
     }
     setLoading(false)
   }
@@ -128,9 +143,11 @@ const AuthForm: React.FC = () => {
 
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-        setError(error.message)
+      setError(error.message)
     } else {
-        navigate('/');
+      const targetPath = redirectPath || '/dashboard'
+      console.log('Sign-in successful, navigating to:', targetPath) // Debugging
+      navigate(targetPath, { replace: true }) // Use replace to avoid login page in history
     }
 
     setLoading(false)
@@ -140,8 +157,10 @@ const AuthForm: React.FC = () => {
     setLoading(true)
     setError(null)
     const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: oauthRedirectTo } })
-    if (error) setError(error.message)
-    setLoading(false)
+    if (error) {
+      setError(error.message)
+      setLoading(false) // Stop loading on immediate error
+    }
   }
 
   /* -------------------------------------------------- */
