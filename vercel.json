@@ -1,7 +1,7 @@
 {
   "headers": [
     {
-      "source": "/api/projects{,/(.*)}",
+      "source": "/apps/api/api/projects{,/(.*)}", 
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "https://errly.vercel.app" },
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
@@ -10,7 +10,7 @@
       ]
     },
     {
-      "source": "/api/errors",
+      "source": "/apps/api/api/errors",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" },
         { "key": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
