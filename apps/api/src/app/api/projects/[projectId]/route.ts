@@ -15,60 +15,78 @@ export async function OPTIONS(_request: NextRequest) {
   return new NextResponse(null, { headers: dashboardCorsHeaders });
 }
 
+// Helper function to get publicUserId from authUserId
+async function getPublicUserIdFromAuthId(authUserId: string): Promise<string | null> {
+  try {
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('supabase_auth_id', authUserId)
+      .single();
+    if (userError) {
+      console.error(`[API Helper] Error fetching public user ID for auth ID ${authUserId}:`, userError.message);
+      return null;
+    }
+    if (!userData) {
+      console.error(`[API Helper] Public user profile not found for auth ID ${authUserId}.`);
+      return null;
+    }
+    return userData.id;
+  } catch (err) {
+    console.error('[API Helper] Unexpected error fetching public user ID:', err);
+    return null;
+  }
+}
+
 // GET /api/projects/[projectId] - Fetch a single project
 export async function GET(
   request: NextRequest,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  context: any
+  context: { params?: { projectId?: string } }
 ) {
-  const { params } = context;
-  if (!params?.projectId) {
-    // Add back explicit headers
+  const projectId = context.params?.projectId;
+  if (!projectId) {
     return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
   }
-  // Use JWT validation
-  const user = await getUserFromToken(request);
 
-  if (!user) { // Check for user object
-    // Add back explicit headers
+  const user = await getUserFromToken(request);
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
-  // Use user.id directly
-  const userId = user.id;
-  const projectId = params.projectId;
+  const authUserId = user.id; // Auth ID (X)
+
+  // Get Public User ID (Y)
+  const publicUserId = await getPublicUserIdFromAuthId(authUserId);
+  if (!publicUserId) {
+    // Handle case where public user profile doesn't exist or lookup failed
+    return NextResponse.json({ error: 'User profile not found or lookup failed' }, { status: 404, headers: dashboardCorsHeaders });
+  }
+
+  console.log(`[API GET /projects/${projectId}] Looking for project for public user ID: ${publicUserId}`);
 
   try {
     const { data: project, error } = await supabaseAdmin
       .from('projects')
-      .select('id, name, created_at, api_key') // Select desired fields
+      .select('id, name, created_at, api_key')
       .eq('id', projectId)
-      .eq('user_id', userId) // Ensure the project belongs to the user
-      .single(); // Expect a single result
+      .eq('user_id', publicUserId) // Use publicUserId (Y) for check
+      .single();
 
-    if (error) {
-      console.error('Supabase query error (GET project):', error.message);
-      if (error.code === 'PGRST116') { // PGRST116 = "Row not found"
-        // Add back explicit headers
-        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
-      }
-      // Add back explicit headers
-      return NextResponse.json({ error: 'Failed to fetch project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
+    if (error || !project) {
+        if (error?.code === 'PGRST116' || !project) {
+            console.warn(`[API GET /projects/${projectId}] Project not found for public user ID ${publicUserId}`);
+            return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
+        } else {
+           console.error('[API GET /projects] Supabase query error:', error.message);
+           return NextResponse.json({ error: 'Failed to fetch project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
+        }
     }
-
-    if (!project) {
-        // Add back explicit headers
-        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
-    }
-    // Add back explicit headers
+    
     return NextResponse.json(project, { headers: dashboardCorsHeaders });
 
-  } catch (err: unknown) { // Use unknown
+  } catch (err: unknown) {
     let errorMessage = 'An unexpected error occurred';
-    if (err instanceof Error) {
-        errorMessage = err.message;
-    }
-    console.error('Unexpected error fetching project:', errorMessage);
-    // Add back explicit headers
+    if (err instanceof Error) { errorMessage = err.message; }
+    console.error('[API GET /projects] Unexpected error:', errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
 }
@@ -76,132 +94,133 @@ export async function GET(
 // PUT /api/projects/[projectId] - Update a specific project
 export async function PUT(
   request: NextRequest,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  context: any
+  context: { params?: { projectId?: string } }
 ) {
-  const { params } = context;
-  if (!params?.projectId) {
-    // Add back explicit headers
+  const projectId = context.params?.projectId;
+  if (!projectId) {
     return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
   }
-  // Use JWT validation
-  const user = await getUserFromToken(request);
 
-  if (!user) { // Check for user object
-    // Add back explicit headers
+  const user = await getUserFromToken(request);
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
-  // Use user.id directly
-  const userId = user.id;
-  const projectId = params.projectId;
+  const authUserId = user.id; // Auth ID (X)
+
+  // Get Public User ID (Y)
+  const publicUserId = await getPublicUserIdFromAuthId(authUserId);
+  if (!publicUserId) {
+    return NextResponse.json({ error: 'User profile not found or lookup failed' }, { status: 404, headers: dashboardCorsHeaders });
+  }
 
   let name: string;
   try {
     const body = await request.json();
-    // Assuming body is an object, type it more specifically if possible
-    name = (body as { name?: string }).name ?? ''; 
+    name = (body as { name?: string }).name ?? '';
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      // Add back explicit headers
       return NextResponse.json({ error: 'Project name is required for update' }, { status: 400, headers: dashboardCorsHeaders });
     }
-    name = name.trim(); // Trim whitespace
-  } catch (_err: unknown) { // Prefix unused err, use unknown
-    // Add back explicit headers
+    name = name.trim();
+  } catch (_err: unknown) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400, headers: dashboardCorsHeaders });
   }
+
+  console.log(`[API PUT /projects/${projectId}] Updating project for public user ID: ${publicUserId}`);
 
   try {
     const { data: updatedProject, error } = await supabaseAdmin
       .from('projects')
       .update({ name: name })
       .eq('id', projectId)
-      .eq('user_id', userId) // Ensure the user owns the project
-      .select('id, name, created_at') // Return the updated project
-      .single(); // Expect a single row back
+      .eq('user_id', publicUserId) // Use publicUserId (Y) for check
+      .select('id, name, created_at')
+      .single();
 
-    if (error) {
-      console.error('Supabase update error:', error.message);
-       if (error.code === 'PGRST116') { // PGRST116 = "Row not found"
-         // Add back explicit headers
-         return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
-       }
-      // Add back explicit headers
-      return NextResponse.json({ error: 'Failed to update project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
+    if (error || !updatedProject) {
+      if (error?.code === 'PGRST116' || !updatedProject) {
+        console.warn(`[API PUT /projects/${projectId}] Project not found for public user ID ${publicUserId}`);
+        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
+      } else {
+        console.error('[API PUT /projects] Supabase update error:', error.message);
+        return NextResponse.json({ error: 'Failed to update project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
+      }
     }
-    
-    if (!updatedProject) { // Should not happen if error is null, but good practice
-         // Add back explicit headers
-         return NextResponse.json({ error: 'Project not found after update attempt' }, { status: 404, headers: dashboardCorsHeaders });
-    }
-    // Add back explicit headers
+
     return NextResponse.json(updatedProject, { headers: dashboardCorsHeaders });
 
-  } catch (err: unknown) { // Use unknown
+  } catch (err: unknown) {
     let errorMessage = 'An unexpected error occurred';
-    if (err instanceof Error) {
-        errorMessage = err.message;
-    }
-    console.error('Unexpected error updating project:', errorMessage);
-    // Add back explicit headers
+    if (err instanceof Error) { errorMessage = err.message; }
+    console.error('[API PUT /projects] Unexpected error:', errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
 }
 
 // DELETE /api/projects/[projectId] - Delete a specific project
 export async function DELETE(
-  _request: NextRequest,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  context: any
+  request: NextRequest, // Need request for getUserFromToken
+  context: { params?: { projectId?: string } }
 ) {
-  const { params } = context;
-  if (!params?.projectId) {
-    // Add back explicit headers
+  const projectId = context.params?.projectId;
+  if (!projectId) {
     return NextResponse.json({ error: 'Missing project ID' }, { status: 400, headers: dashboardCorsHeaders });
   }
-  // Use JWT validation
-  // Note: We still need the request object here, so remove the underscore
-  const user = await getUserFromToken(_request);
 
-  if (!user) { // Check for user object
-    // Add back explicit headers
+  const user = await getUserFromToken(request);
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
-  // Use user.id directly
-  const userId = user.id;
-  const projectId = params.projectId;
+  const authUserId = user.id; // Auth ID (X)
+
+  // Get Public User ID (Y)
+  const publicUserId = await getPublicUserIdFromAuthId(authUserId);
+  if (!publicUserId) {
+    // Even if user doesn't exist, we can proceed to attempt delete,
+    // it will just likely result in count=0 if they never had the project.
+    console.warn(`[API DELETE /projects] Public user ID lookup failed for auth ID ${authUserId}, proceeding with delete attempt.`);
+    // Alternatively, return 404 here if desired: 
+    // return NextResponse.json({ error: 'User profile not found or lookup failed' }, { status: 404, headers: dashboardCorsHeaders });
+  }
+
+  console.log(`[API DELETE /projects/${projectId}] Attempting delete for auth user ${authUserId} (public ID: ${publicUserId})`);
 
   try {
-    const { error, count } = await supabaseAdmin
-      .from('projects')
-      .delete({ count: 'exact' }) // Request the count of deleted rows
-      .eq('id', projectId)
-      .eq('user_id', userId); // Ensure the user owns the project
+    // Use publicUserId (Y) if available, otherwise the delete will naturally fail to match
+    // if the project exists but belongs to someone else, or if the project simply doesn't exist.
+    // The key is matching on projectId AND the correct user ID (Y) if we found it.
+    const query = supabaseAdmin
+        .from('projects')
+        .delete({ count: 'exact' })
+        .eq('id', projectId);
+    
+    // Only add the user_id check if we successfully found the publicUserId
+    if (publicUserId) {
+        query.eq('user_id', publicUserId); 
+    }
+
+    const { error, count } = await query;
 
     if (error) {
-      console.error('Supabase delete error:', error.message);
-      // Add back explicit headers
+      console.error('[API DELETE /projects] Supabase delete error:', error.message);
       return NextResponse.json({ error: 'Failed to delete project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
     if (count === 0) {
-       // Add back explicit headers
+       console.warn(`[API DELETE /projects/${projectId}] Project not found for user or access denied (public user ID: ${publicUserId})`);
        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
     
     if (count === null || count > 1) {
-        console.warn(`[API] Unexpected delete count: ${count} for project ${projectId} by user ${userId}`);
+        console.warn(`[API DELETE /projects] Unexpected delete count: ${count} for project ${projectId}`);
     }
 
-    // Add back explicit headers
+    console.log(`[API DELETE /projects/${projectId}] Successfully deleted project.`);
     return new NextResponse(null, { status: 204, headers: dashboardCorsHeaders });
 
-  } catch (err: unknown) { // Use unknown
+  } catch (err: unknown) {
     let errorMessage = 'An unexpected error occurred';
-    if (err instanceof Error) {
-        errorMessage = err.message;
-    }
-    console.error('Unexpected error deleting project:', errorMessage);
-    // Add back explicit headers
+    if (err instanceof Error) { errorMessage = err.message; }
+    console.error('[API DELETE /projects] Unexpected error:', errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
 } 
