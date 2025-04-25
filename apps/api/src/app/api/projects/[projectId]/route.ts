@@ -148,8 +148,12 @@ export async function PUT(
         console.warn(`[API PUT /projects/${projectId}] Project not found for public user ID ${publicUserId}`);
         return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
       } else {
-        console.error('[API PUT /projects] Supabase update error:', error.message);
-        return NextResponse.json({ error: 'Failed to update project', details: error.message }, { status: 500, headers: dashboardCorsHeaders });
+        let errorMessage = 'Unknown Supabase update error';
+        if (error) { 
+           errorMessage = (error as any)?.message || 'Failed to read error message'; 
+        }
+        console.error('[API PUT /projects] Supabase update error:', errorMessage);
+        return NextResponse.json({ error: 'Failed to update project', details: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
       }
     }
 
