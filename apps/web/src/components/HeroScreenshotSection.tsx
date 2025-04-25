@@ -41,10 +41,10 @@ export default function HeroScreenshotSection() {
         </div>
         {/* Actions buttons */}
         <div className="flex gap-4 mb-8 justify-center">
-          <a href="#" className="relative hidden md:block text-center rounded-full ring-3 ring-white/15 bg-gradient-to-t from-gray-300/70 to-white hover:bg-white text-black px-5 py-2.5 transition-colors duration-150 font-bold text-lg">
+          <a href="/coming-soon" className="relative hidden md:block text-center rounded-full ring-3 ring-white/15 bg-gradient-to-t from-gray-300/70 to-white hover:bg-white text-black px-5 py-2.5 transition-colors duration-150 font-bold text-lg">
             Start Your Free Trial
           </a>
-          <a href="#" className="relative hidden md:block rounded-full bg-white/10 hover:bg-white/25 px-7 py-3 transition-colors duration-150 backdrop-blur">
+          <a href="/docs" className="relative hidden md:block rounded-full bg-white/10 hover:bg-white/25 px-7 py-3 transition-colors duration-150 backdrop-blur">
             <span className="flex items-center justify-center font-bold text-lg bg-clip-text text-transparent bg-gradient-to-t from-gray-300/70 to-white">
               See how Errly Works
             </span>

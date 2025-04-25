@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom'
 const NAV_LINKS = [
   { label: 'Use Cases', href: '/coming-soon' },
   { label: 'Pricing', href: '/coming-soon' },
-  { label: 'Manifesto', href: '/coming-soon' },
+  { label: 'Docs', href: '/docs' },
   { label: 'Help Center', href: '/coming-soon' },
 ]
 

@@ -38,7 +38,7 @@ export default function FooterLuxury() {
 
             {/* Windows button */}
             <a
-              href="/coming-soon"
+              href="/docs"
               className="
                 relative hidden md:block rounded-full bg-white/10 hover:bg-white/25 px-7 py-3 transition-colors duration-150 backdrop-blur
               "
