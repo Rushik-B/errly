@@ -77,7 +77,19 @@ async function fetchWithErrorHandling(url: string, options?: RequestInit, token?
     const errorMessage = errorPayload.error || errorPayload.message || errorPayload.details || `API Error ${response.status}`;
     throw new Error(errorMessage);
   }
-  try { return await response.json(); } catch (e: any) { console.error('JSON parse error:', e); throw new Error(`Failed to parse response: ${e.message}`); }
+  try { 
+    return await response.json(); 
+  } catch (e: any) { 
+    // Log the raw response text when JSON parsing fails
+    let rawResponseText = '[Could not read raw response]';
+    try {
+        // Clone the response to read text, as body can only be consumed once
+        const clonedResponse = response.clone(); 
+        rawResponseText = await clonedResponse.text();
+    } catch (readError) {}
+    console.error('JSON parse error for URL:', url, 'Raw Response:', rawResponseText.substring(0, 500) + '...'); // Log snippet of raw response
+    throw new Error(`Failed to parse response as JSON: ${e.message}`); 
+  }
 }
 
 function truncateString(str: string | null | undefined, maxLength: number): string {
@@ -187,16 +199,27 @@ export default function ProjectErrorsPage() {
     const fetchData = async () => {
       setLoading(true);
       setFetchError(null);
+
+      // Log the base URL being used
+      console.log('[fetchData] Using API_BASE_URL:', API_BASE_URL);
+
       try {
+        const projectUrl = `${API_BASE_URL}/api/projects/${projectId}`;
+        const errorsUrl = `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`;
+        
+        // Log the specific URLs being fetched
+        console.log('[fetchData] Fetching project details from:', projectUrl);
+        console.log('[fetchData] Fetching errors from:', errorsUrl);
+
         const projectDetails = await fetchWithErrorHandling(
-            `${API_BASE_URL}/api/projects/${projectId}`, 
+            projectUrl, 
             { }, 
             session.access_token
         );
         setProject(projectDetails);
 
         const errorsResponse: ErrorApiResponse = await fetchWithErrorHandling(
-            `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`, 
+            errorsUrl, 
             { }, 
             session.access_token
         );
@@ -214,7 +237,7 @@ export default function ProjectErrorsPage() {
     };
 
     fetchData();
-  }, [loadingAuth, session, projectId, currentPage, limit, API_BASE_URL, navigate]); 
+  }, [loadingAuth, session, projectId, currentPage, limit, navigate]);
 
   useEffect(() => {
     if (!session || !projectId) return;
