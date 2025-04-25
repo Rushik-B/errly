@@ -157,7 +157,7 @@ function performPotentiallyFailingOperation() {
                   The official JavaScript SDK for Errly. Errly provides simple, instant error alerting via SMS and voice calls, focused on preventing downtime for developers, startups, and small teams.
                 </p>
                 <p>
-                  This SDK captures logs sent via a special <code className="bg-gray-700 text-blue-300 px-1.5 py-0.5 rounded text-sm font-semibold">console.text()</code> method and forwards them to the Errly API for alerting and analysis.
+                  This SDK captures logs sent via a special <code className="bg-gray-700 text-blue-300 px-1.5 py-0.5 rounded text-sm font-semibold">console.text()</code> method. It forwards them to the Errly API for alerting and analysis, allowing you to specify the severity level (like error, warn, info, or log).
                 </p>
               </div>
           </section>
@@ -216,24 +216,39 @@ function performPotentiallyFailingOperation() {
 
           <section id="usage" className="mb-10 scroll-mt-24">
             <h2 className="text-2xl font-semibold mb-4 text-blue-400">Step 3: Usage - Triggering Alerts</h2>
+            <p className="text-base md:text-lg leading-relaxed mb-2">
+              Call <code className="bg-gray-700 text-blue-300 px-1.5 py-0.5 rounded text-sm font-semibold">console.text()</code> where you need to log events to Errly.
+            </p>
             <p className="text-base md:text-lg leading-relaxed mb-6">
-              Call <code className="bg-gray-700 text-blue-300 px-1.5 py-0.5 rounded text-sm font-semibold">console.text()</code> where you need critical alerts. This also calls the original <code className="bg-gray-700 text-gray-400 px-1 py-0.5 rounded text-xs font-semibold">console.error</code>.
+              You can optionally provide a log level (<code className="bg-gray-700 text-gray-400 px-1 py-0.5 rounded text-xs font-semibold">'error'</code>, <code className="bg-gray-700 text-gray-400 px-1 py-0.5 rounded text-xs font-semibold">'warn'</code>, <code className="bg-gray-700 text-gray-400 px-1 py-0.5 rounded text-xs font-semibold">'info'</code>, or <code className="bg-gray-700 text-gray-400 px-1 py-0.5 rounded text-xs font-semibold">'log'</code>, case-insensitive) as the first argument. If omitted, it defaults to <code className="bg-gray-700 text-gray-400 px-1 py-0.5 rounded text-xs font-semibold">'error'</code>. The SDK will also call the corresponding original console method (e.g., <code className="bg-gray-700 text-gray-400 px-1 py-0.5 rounded text-xs font-semibold">console.error</code>, <code className="bg-gray-700 text-gray-400 px-1 py-0.5 rounded text-xs font-semibold">console.warn</code>) for standard browser/Node.js logging.
             </p>
             <div className="space-y-6">
               <div>
-                <h4 className="text-md font-medium mb-1 text-gray-100">Example: Payment Processing Error</h4>
+                <h4 className="text-md font-medium mb-1 text-gray-100">Example: Critical Error (Default Level)</h4>
                 <SyntaxHighlighter language="javascript" style={atomDark} customStyle={{ padding: '1rem', borderRadius: '0.375rem' }} showLineNumbers wrapLongLines>
                   {usageErrorObject}
                 </SyntaxHighlighter>
               </div>
               <div>
-                <h4 className="text-md font-medium mb-1 text-gray-100">Example: Logging Different Types</h4>
+                <h4 className="text-md font-medium mb-1 text-gray-100">Example: Sending a Warning</h4>
+                <SyntaxHighlighter language="javascript" style={atomDark} customStyle={{ padding: '1rem', borderRadius: '0.375rem' }} showLineNumbers wrapLongLines>
+                  {`// Specify 'warn' as the level\nconsole.text('warn', 'Configuration value looks suspicious.', { config: 'old_value', userId: 'admin' });\n\n// This will call the original console.warn() and send a 'warn' level event to Errly.`}
+                </SyntaxHighlighter>
+              </div>
+               <div>
+                <h4 className="text-md font-medium mb-1 text-gray-100">Example: Sending Informational Log</h4>
+                <SyntaxHighlighter language="javascript" style={atomDark} customStyle={{ padding: '1rem', borderRadius: '0.375rem' }} showLineNumbers wrapLongLines>
+                  {`// Specify 'info' as the level\nconsole.text('info', 'User logged in successfully.', { userId: 123 });\n\n// This will call the original console.info() and send an 'info' level event to Errly.`}
+                </SyntaxHighlighter>
+              </div>
+              <div>
+                <h4 className="text-md font-medium mb-1 text-gray-100">Example: Logging Metadata (Default Error Level)</h4>
                 <SyntaxHighlighter language="javascript" style={atomDark} customStyle={{ padding: '1rem', borderRadius: '0.375rem' }} showLineNumbers wrapLongLines>
                   {usageMetadata}
                 </SyntaxHighlighter>
               </div>
               <div>
-                <h4 className="text-md font-medium mb-1 text-gray-100">Example: Simple Message</h4>
+                <h4 className="text-md font-medium mb-1 text-gray-100">Example: Simple Message (Default Error Level)</h4>
                 <SyntaxHighlighter language="javascript" style={atomDark} customStyle={{ padding: '1rem', borderRadius: '0.375rem' }}>
                   {usageSimple}
                 </SyntaxHighlighter>
@@ -279,7 +294,7 @@ function performPotentiallyFailingOperation() {
                <li>Import <code className="bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded text-xs font-semibold">setKey</code>, <code className="bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded text-xs font-semibold">patch</code> from <code className="bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded text-xs font-semibold">errly-sdk</code>.</li>
                <li>Call <code className="bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded text-xs font-semibold">setKey('YOUR_ERRLY_PROJECT_API_KEY')</code>.</li>
                <li>Call <code className="bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded text-xs font-semibold">patch()</code>.</li>
-               <li>Use <code className="bg-gray-700 text-blue-300 px-1.5 py-0.5 rounded text-xs font-semibold">console.text(...)</code> to log errors!</li>
+               <li>Use <code className="bg-gray-700 text-blue-300 px-1.5 py-0.5 rounded text-xs font-semibold">console.text([level], ...)</code> to log events! (Level defaults to 'error').</li>
              </ul>
           </section>
 
