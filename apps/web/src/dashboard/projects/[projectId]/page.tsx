@@ -27,7 +27,6 @@ import ErrorDetailModal from '../../../ErrorModal/ErrorDetailModal.tsx';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Project {
   id: string;
@@ -52,7 +51,6 @@ interface ErrorApiResponse {
   limit: number;
 }
 
-// Revert back to import.meta.env for Vite
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 async function fetchWithErrorHandling(url: string, options?: RequestInit, token?: string | null): Promise<any> {
@@ -78,19 +76,7 @@ async function fetchWithErrorHandling(url: string, options?: RequestInit, token?
     const errorMessage = errorPayload.error || errorPayload.message || errorPayload.details || `API Error ${response.status}`;
     throw new Error(errorMessage);
   }
-  try { 
-    return await response.json(); 
-  } catch (e: any) { 
-    // Log the raw response text when JSON parsing fails
-    let rawResponseText = '[Could not read raw response]';
-    try {
-        // Clone the response to read text, as body can only be consumed once
-        const clonedResponse = response.clone(); 
-        rawResponseText = await clonedResponse.text();
-    } catch (readError) {}
-    console.error('JSON parse error for URL:', url, 'Raw Response:', rawResponseText.substring(0, 500) + '...'); // Log snippet of raw response
-    throw new Error(`Failed to parse response as JSON: ${e.message}`); 
-  }
+  try { return await response.json(); } catch (e: any) { console.error('JSON parse error:', e); throw new Error(`Failed to parse response: ${e.message}`); }
 }
 
 function truncateString(str: string | null | undefined, maxLength: number): string {
@@ -200,27 +186,16 @@ export default function ProjectErrorsPage() {
     const fetchData = async () => {
       setLoading(true);
       setFetchError(null);
-
-      // Log the base URL being used
-      console.log('[fetchData] Using API_BASE_URL:', API_BASE_URL);
-
       try {
-        const projectUrl = `${API_BASE_URL}/projects/${projectId}`;
-        const errorsUrl = `${API_BASE_URL}/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`;
-        
-        // Log the specific URLs being fetched
-        console.log('[fetchData] Fetching project details from:', projectUrl);
-        console.log('[fetchData] Fetching errors from:', errorsUrl);
-
         const projectDetails = await fetchWithErrorHandling(
-            projectUrl, 
+            `${API_BASE_URL}/api/projects/${projectId}`, 
             { }, 
             session.access_token
         );
         setProject(projectDetails);
 
         const errorsResponse: ErrorApiResponse = await fetchWithErrorHandling(
-            errorsUrl, 
+            `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`, 
             { }, 
             session.access_token
         );
@@ -238,14 +213,14 @@ export default function ProjectErrorsPage() {
     };
 
     fetchData();
-  }, [loadingAuth, session, projectId, currentPage, limit, navigate]);
+  }, [loadingAuth, session, projectId, currentPage, limit, API_BASE_URL, navigate]); 
 
   useEffect(() => {
     if (!session || !projectId) return;
 
     console.log(`[Realtime] Setting up subscription for project: ${projectId}`);
 
-    const handleNewError = (payload: { eventType: string; new: ApiError }) => {
+    const handleNewError = (payload: any) => {
       console.log(`[Realtime] handleNewError CALLED. Payload:`, payload);
       
       if (payload.eventType !== 'INSERT') {
@@ -258,12 +233,12 @@ export default function ProjectErrorsPage() {
            return;
       }
 
-      const newError = payload.new;
+      const newError = payload.new as ApiError;
       console.log(`[Realtime] Processing new error with ID: ${newError.id}`);
 
-      setErrors((currentErrors: ApiError[]) => {
+      setErrors((currentErrors) => {
           console.log(`[Realtime] Current errors count before update attempt: ${currentErrors.length}`);
-          if (currentErrors.some((e: ApiError) => e.id === newError.id)) {
+          if (currentErrors.some(e => e.id === newError.id)) {
               console.log(`[Realtime] Duplicate error received (ID: ${newError.id}), skipping state update.`);
               return currentErrors;
           }
@@ -272,7 +247,7 @@ export default function ProjectErrorsPage() {
           return updatedErrors;
       });
       
-      setTotalCount((currentTotal: number) => {
+      setTotalCount(currentTotal => {
           console.log(`[Realtime] Updating total count from ${currentTotal} to ${currentTotal + 1}`);
           return currentTotal + 1;
       });
@@ -290,13 +265,13 @@ export default function ProjectErrorsPage() {
         },
         handleNewError
       )
-      .subscribe((status: string, err?: Error) => {
+      .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           console.log(`[Realtime] Successfully subscribed to project ${projectId} errors!`);
         }
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error(`[Realtime] Subscription error for project ${projectId}:`, status, err);
-          setFetchError(`Realtime connection failed: ${status}. ${err?.message || ''}`);
+          setFetchError(`Realtime connection failed: ${status}. Please refresh.`);
         }
         if (status === 'CLOSED'){
              console.log(`[Realtime] Subscription closed for project ${projectId}.`);
@@ -306,7 +281,7 @@ export default function ProjectErrorsPage() {
     return () => {
       console.log(`[Realtime] Cleaning up subscription for project: ${projectId}`);
       if (channel) {
-        supabase.removeChannel(channel).catch((error: Error) => {
+        supabase.removeChannel(channel).catch(error => {
             console.error('[Realtime] Error removing channel:', error);
         });
       }
@@ -317,11 +292,11 @@ export default function ProjectErrorsPage() {
   const filteredErrors = useMemo(() => {
       let tempErrors = errors;
       if (levelFilter !== 'all') {
-          tempErrors = tempErrors.filter((error: ApiError) => error.level?.toLowerCase() === levelFilter);
+          tempErrors = tempErrors.filter(error => error.level?.toLowerCase() === levelFilter);
       }
       if (debouncedSearchTerm) {
           const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
-          tempErrors = tempErrors.filter((error: ApiError) => 
+          tempErrors = tempErrors.filter(error => 
               error.message.toLowerCase().includes(lowerCaseSearchTerm)
           );
       }
@@ -330,7 +305,7 @@ export default function ProjectErrorsPage() {
 
   const sortedAndFilteredErrors = useMemo(() => {
       let items = [...filteredErrors];
-      items.sort((a: ApiError, b: ApiError) => {
+      items.sort((a, b) => {
           let valA, valB;
           if (sortKey === 'received_at') {
               valA = new Date(a.received_at).getTime();
@@ -378,7 +353,7 @@ export default function ProjectErrorsPage() {
 
   const handleSort = (key: 'received_at' | 'message') => {
       if (key === sortKey) {
-          setSortDirection((prevDirection: 'asc' | 'desc') => (prevDirection === 'asc' ? 'desc' : 'asc'));
+          setSortDirection(prevDirection => (prevDirection === 'asc' ? 'desc' : 'asc'));
       } else {
           setSortKey(key);
           setSortDirection(key === 'received_at' ? 'desc' : 'asc');
@@ -419,7 +394,7 @@ export default function ProjectErrorsPage() {
                type="search"
                placeholder="Filter by message..."
                value={searchTerm}
-               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+               onChange={(e) => setSearchTerm(e.target.value)}
                className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[320px] dark:bg-zinc-900"
              />
            </div>
@@ -434,7 +409,7 @@ export default function ProjectErrorsPage() {
                     variant={isActive ? "default" : "outline"}
                     size="sm"
                     onClick={() => setLevelFilter(level)}
-                    className={`capitalize ${isActive ? (level === 'all' ? details.filterColorClass : details.filterColorClass) : ''}`}
+                    className={`capitalize ${isActive && level !== 'all' ? details.filterColorClass : ''} ${isActive && level === 'all' ? details.filterColorClass : ''} `}
                   >
                     <Icon className={`mr-2 h-4 w-4 ${isActive ? '' : 'text-muted-foreground'}`} />
                     {level}
@@ -452,13 +427,10 @@ export default function ProjectErrorsPage() {
          )}
 
          {fetchError && (
-           <Alert variant="destructive"> 
-              <ExclamationTriangleIcon className="h-4 w-4" />
-              <AlertTitle>Error Loading Data</AlertTitle>
-              <AlertDescription>
-                {fetchError}
-              </AlertDescription>
-           </Alert>
+           <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 bg-destructive/10 border-destructive/50 text-destructive" role="alert"> 
+             <h5 className="mb-1 font-medium leading-none tracking-tight">Error</h5>
+             <div className="text-sm"> {fetchError}</div>
+           </div>
          )}
         
          {/* Table and Pagination Section */}
@@ -489,7 +461,7 @@ export default function ProjectErrorsPage() {
                             </thead>
                             <tbody className="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-900">
                                 {sortedAndFilteredErrors.length > 0 ? (
-                                    sortedAndFilteredErrors.map((error: ApiError) => (
+                                    sortedAndFilteredErrors.map((error) => (
                                         <tr 
                                             key={error.id} 
                                             onClick={() => handleRowClick(error)} 
