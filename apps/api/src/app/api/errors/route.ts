@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '../../../lib/supabase/admin.ts'
-import { supabaseServiceClient } from '../../../lib/supabaseClient.ts'
-import { getUserFromToken } from '../../../lib/authUtils.ts'
+import { supabaseAdmin } from '../../../lib/supabase/admin'
+import { supabaseServiceClient } from '../../../lib/supabaseClient'
+import { getUserFromToken } from '../../../lib/authUtils'
 import { z } from 'zod' // Import Zod
 
 // Restore dashboard-specific CORS headers (for GET requests)
