@@ -1,0 +1,221 @@
+[
+  {
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "column_name": "received_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "column_name": "project_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "message",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "stack_trace",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "metadata",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": null
+  }
+]
+
+[
+  {
+    "constraint_name": "errors_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id"
+  },
+  {
+    "constraint_name": "errors_project_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17306_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17306_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17306_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17306_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  }
+]
+
+[
+  {
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "api_key",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "column_name": "last_notified_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  }
+]
+
+[
+  {
+    "constraint_name": "projects_api_key_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "api_key"
+  },
+  {
+    "constraint_name": "projects_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id"
+  },
+  {
+    "constraint_name": "projects_user_id_fkey",
+    "constraint_type": "FOREIGN KEY",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17280_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17280_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17280_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17280_4_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17280_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  }
+]
+
+
+[
+  {
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "''::text"
+  },
+  {
+    "column_name": "phone_number",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "supabase_auth_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  }
+]
+
+
+[
+  {
+    "constraint_name": "users_pkey",
+    "constraint_type": "PRIMARY KEY",
+    "column_name": "id"
+  },
+  {
+    "constraint_name": "users_supabase_auth_id_key",
+    "constraint_type": "UNIQUE",
+    "column_name": "supabase_auth_id"
+  },
+  {
+    "constraint_name": "2200_17267_1_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17267_2_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17267_3_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  },
+  {
+    "constraint_name": "2200_17267_5_not_null",
+    "constraint_type": "CHECK",
+    "column_name": null
+  }
+]

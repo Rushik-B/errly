@@ -74,45 +74,43 @@ serve(async (req: Request): Promise<Response> => {
     }
     if (!projectData) {
       console.warn("[send-error-notification] Project not found for ID:", newError.project_id);
-  return new Response(
+      return new Response(
         JSON.stringify({ message: "Project details not found, skipping notification." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Not a server error
       );
     }
 
-    // Now fetch user details using the supabase_auth_id (which matches projectData.user_id)
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from("users")
-      .select(`phone_number`)
-      .eq("supabase_auth_id", projectData.user_id) // Match on the link to auth.users
-      .single();
-    
-    // Log user query result
-    if (userError) {
-      console.error(`[send-error-notification] Error fetching user profile for auth ID ${projectData.user_id}:`, userError.message);
-      // Decide if this is fatal or just skip notification
-       return new Response(
-         JSON.stringify({ message: "User profile lookup failed, skipping notification.", details: userError.message }),
-         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Not necessarily a server error
-       );
-    }
-    if (!userData) {
-        console.warn(`[send-error-notification] User profile not found for auth ID: ${projectData.user_id}`);
-         return new Response(
-           JSON.stringify({ message: "User profile not found, skipping notification." }),
-           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Not a server error
-         );
-    }
+    // Store the user ID from the project table (this should be the public.users.id)
+    const projectUserId = projectData.user_id;
 
-    // Combine results (adjust if needed)
-    const userPhoneNumber = userData.phone_number;
+    // === Replace User Query with Phone Number Query ===
+    console.log(`[send-error-notification] Fetching primary phone number for user ID: ${projectUserId}`);
+    const { data: phoneData, error: phoneError } = await supabaseAdmin
+      .from("phone_numbers") // Query the new table
+      .select(`phone_number`) // Select the number column
+      .eq("user_id", projectUserId) // Match the user ID from the project
+      .eq("is_primary", true) // Find the primary number
+      .maybeSingle(); // Use maybeSingle as a user might not have a primary number yet
+    
+    if (phoneError) {
+      console.error(`[send-error-notification] Error fetching primary phone number for user ID ${projectUserId}:`, phoneError.message);
+      return new Response(
+        JSON.stringify({ message: "Primary phone number lookup failed, skipping notification.", details: phoneError.message }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    
+    // Get the phone number from the result
+    const userPhoneNumber = phoneData?.phone_number; // Will be null if no primary number found
+    // === End of Query Replacement ===
+    
     const lastNotifiedAt  = projectData.last_notified_at;
     const projectName     = projectData.name;
 
     if (!userPhoneNumber) {
-      console.warn("[send-error-notification] No phone number configured for user.");
+      console.warn(`[send-error-notification] No primary phone number configured for user ID: ${projectUserId}. Skipping notification.`);
       return new Response(
-        JSON.stringify({ message: "No phone number configured for user." }),
+        JSON.stringify({ message: "No primary phone number configured for user." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

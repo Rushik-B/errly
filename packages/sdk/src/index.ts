@@ -82,8 +82,8 @@
       const message = args
         .map(arg => {
           if (arg instanceof Error) {
-            // Include stack trace directly in the message for simpler display in some cases
-            return arg.stack || arg.toString();
+            // Use the error's message, fallback to toString(), avoid the full stack here.
+            return arg.message || arg.toString();
           }
           try {
             // Attempt to stringify objects, handle primitives
@@ -94,12 +94,13 @@
         })
         .join(' '); // Join arguments with a space
 
-      // 2. Extract stack trace if an Error object is present (can be redundant if included above)
+      // 2. Extract stack trace if an Error object is present
       const errorArg = args.find(arg => arg instanceof Error);
       const stackTrace = errorArg ? errorArg.stack : undefined;
 
-      // 3. Prepare metadata - Use original args, filter out Error if needed later
-      const metadata = args.length > 0 ? { originalArgs: args } : undefined; // Send args if any provided
+      // 3. Prepare metadata - Filter out Error objects from original args
+      const filteredArgs = args.filter(arg => !(arg instanceof Error));
+      const metadata = filteredArgs.length > 0 ? { originalArgs: filteredArgs } : undefined; // Send args if any provided and they aren't Errors
 
       console.log(`Errly SDK: Attempting to send event via console.text() to: ${apiUrl}`);
 
