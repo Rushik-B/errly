@@ -76,7 +76,7 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({ isOpen, onClose, er
       {isOpen && (
         <motion.div
           className={styles.backdrop}
-          onClick={onClose} // Close modal on backdrop click
+          onClick={onClose} // Close modal on backdrop click!
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
