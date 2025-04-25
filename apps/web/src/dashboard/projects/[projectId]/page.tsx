@@ -1,19 +1,34 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { getSupabaseClient } from '../../../lib/supabaseClient';
-import LogoutButton from '../../../ErrorModal/LogoutButton';
-import { useAuth } from '../../../context/AuthContext';
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
+import { getSupabaseClient } from '../../../lib/supabaseClient.ts';
+import LogoutButton from '../../../ErrorModal/LogoutButton.tsx';
+import { useAuth } from '../../../context/AuthContext.tsx';
+import { 
+  ArrowLeftIcon, 
+  ChevronLeftIcon, 
+  ChevronRightIcon, 
+  MagnifyingGlassIcon, 
+  ArrowUpIcon, 
+  ArrowDownIcon,
+  ExclamationTriangleIcon,
+  ExclamationCircleIcon,
+  InformationCircleIcon,
+  ChatBubbleBottomCenterTextIcon,
+  Bars3Icon
+} from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
-import styles from './projectErrors.module.css';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { formatDistanceToNow } from 'date-fns';
-import ErrorDetailModal from '../../../ErrorModal/ErrorDetailModal';
+import ErrorDetailModal from '../../../ErrorModal/ErrorDetailModal.tsx';
 
-// Define types based on API responses
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 interface Project {
   id: string;
   name: string;
@@ -37,23 +52,18 @@ interface ErrorApiResponse {
   limit: number;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
-// Update fetchWithErrorHandling to accept and use an auth token
 async function fetchWithErrorHandling(url: string, options?: RequestInit, token?: string | null): Promise<any> {
   let response;
   
-  // Prepare headers, adding Authorization if token is provided
   const headers = new Headers(options?.headers);
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  // Ensure credentials: 'include' is not conflicting if you mainly use tokens
-  // If your API relies solely on Bearer tokens, you might not need credentials: 'include'
   const fetchOptions = {
       ...options,
       headers: headers,
-      // credentials: 'include' // Keep or remove based on whether API ALSO needs cookies
   };
 
   try {
@@ -61,30 +71,25 @@ async function fetchWithErrorHandling(url: string, options?: RequestInit, token?
   } catch (networkError: any) { console.error('Network error:', networkError); throw new Error(`Network error: ${networkError.message}`); }
 
   if (!response.ok) {
-    let errorPayload: any = { error: `Request failed: ${response.status} ${response.statusText}` }; // Include statusText
+    let errorPayload: any = { error: `Request failed: ${response.status} ${response.statusText}` };
     try { errorPayload = await response.json(); } catch (e) { }
     console.error('API Error:', errorPayload);
-    // Use a more specific error message if available from payload
     const errorMessage = errorPayload.error || errorPayload.message || errorPayload.details || `API Error ${response.status}`;
     throw new Error(errorMessage);
   }
   try { return await response.json(); } catch (e: any) { console.error('JSON parse error:', e); throw new Error(`Failed to parse response: ${e.message}`); }
 }
 
-// Helper function to truncate strings
 function truncateString(str: string | null | undefined, maxLength: number): string {
   if (!str) return 'N/A';
   if (str.length <= maxLength) return str;
   return str.substring(0, maxLength) + '...';
 }
 
-// Helper function to format metadata for display
 function formatMetadata(metadata: any | null, maxLength: number): string {
     if (metadata === null || metadata === undefined) return 'N/A';
     let displayString;
     try {
-        // Attempt to stringify, handling potential circular references gracefully is hard here
-        // A simple JSON.stringify is often enough for basic display
         displayString = JSON.stringify(metadata);
     } catch (e) {
         displayString = '[Unserializable Metadata]';
@@ -92,42 +97,43 @@ function formatMetadata(metadata: any | null, maxLength: number): string {
     return truncateString(displayString, maxLength);
 }
 
-// --- Helper Hook for Debouncing --- (Could be moved to a utils file)
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
-    // Set debouncedValue to value (passed in) after the specified delay
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
 
-    // Return a cleanup function that will be called every time ...
-    // ... useEffect executes, except the first time.
     return () => {
       clearTimeout(handler);
     };
-  }, [value, delay]); // Only re-call effect if value or delay changes
+  }, [value, delay]);
 
   return debouncedValue;
 }
-// --- End Debounce Hook ---
 
-// Helper function to get CSS class based on error level
-const getLevelClassName = (level?: string): string => {
-  switch (level?.toLowerCase()) {
+const getLevelDetails = (level?: string): { icon: React.ElementType, colorClass: string, filterColorClass: string, filterHoverClass: string } => {
+  const lowerLevel = level?.toLowerCase();
+  switch (lowerLevel) {
     case 'error':
-      return styles.levelError;
+      return { icon: ExclamationTriangleIcon, colorClass: 'border-l-red-500 hover:bg-red-100 dark:hover:bg-red-900/50', filterColorClass: 'border-red-500 bg-red-500 hover:bg-red-600 text-white', filterHoverClass: 'hover:bg-red-600' };
     case 'warn':
-      return styles.levelWarn;
+      return { icon: ExclamationCircleIcon, colorClass: 'border-l-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/50', filterColorClass: 'border-yellow-500 bg-yellow-500 hover:bg-yellow-600 text-white', filterHoverClass: 'hover:bg-yellow-600' };
     case 'info':
-      return styles.levelInfo;
+      return { icon: InformationCircleIcon, colorClass: 'border-l-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50', filterColorClass: 'border-blue-500 bg-blue-500 hover:bg-blue-600 text-white', filterHoverClass: 'hover:bg-blue-600' };
     case 'log':
-      return styles.levelLog;
+      return { icon: ChatBubbleBottomCenterTextIcon, colorClass: 'border-l-purple-500 hover:bg-purple-100 dark:hover:bg-purple-900/50', filterColorClass: 'border-purple-500 bg-purple-500 hover:bg-purple-600 text-white', filterHoverClass: 'hover:bg-purple-600' };
     default:
-      return styles.levelDefault; // Default style if level is missing or unexpected
+      return { icon: Bars3Icon, colorClass: 'border-l-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50', filterColorClass: 'border-primary bg-primary hover:bg-primary/90 text-primary-foreground', filterHoverClass: 'hover:bg-primary/90' };
   }
 };
+
+const getLevelRowClassName = (level?: string): string => {
+  return getLevelDetails(level).colorClass;
+};
+
+type LevelFilter = 'all' | 'error' | 'warn' | 'info' | 'log';
 
 export default function ProjectErrorsPage() {
   const params = useParams();
@@ -143,41 +149,31 @@ export default function ProjectErrorsPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [limit, setLimit] = useState(20); // Items per page
+  const [limit, setLimit] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
 
-  // State for the modal
   const [selectedError, setSelectedError] = useState<ApiError | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // State for Search Filter
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  // State for Sorting
-  const [sortKey, setSortKey] = useState<'received_at' | 'message'>('received_at'); // Default sort by received_at
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Default newest first
+  const [sortKey, setSortKey] = useState<'received_at' | 'message'>('received_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // State for Level Filter
-  const [levelFilter, setLevelFilter] = useState<'all' | 'error' | 'warn' | 'info' | 'log'>('all');
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
 
-  // Redirect if auth finished loading and there's no user
   useEffect(() => {
     if (!loadingAuth && !authUser) {
       console.log('ProjectErrorsPage: Auth loaded, no user found. Redirecting to login.');
-      // Optionally pass current path for redirect back
       const redirectPath = location.pathname + location.search;
       navigate(`/login?redirect=${encodeURIComponent(redirectPath)}`, { replace: true });
     }
   }, [loadingAuth, authUser, navigate, location.pathname, location.search]);
 
-  // Fetch project details and errors
   useEffect(() => {
-    // Wait for auth to load and ensure we have a session and projectId
     if (loadingAuth || !session || !projectId) {
-      // If auth is loading, reflect that in local loading state
       setLoading(loadingAuth);
-      // If not loading auth but no session, clear errors/project and stop loading
       if (!loadingAuth && !session) {
           setProject(null);
           setErrors([]);
@@ -192,19 +188,17 @@ export default function ProjectErrorsPage() {
       setLoading(true);
       setFetchError(null);
       try {
-        // Fetch project details, passing the access token
         const projectDetails = await fetchWithErrorHandling(
             `${API_BASE_URL}/api/projects/${projectId}`, 
-            { /* options if needed */ }, 
-            session.access_token // Pass token
+            { }, 
+            session.access_token
         );
         setProject(projectDetails);
 
-        // Fetch errors for the current page, passing the access token
         const errorsResponse: ErrorApiResponse = await fetchWithErrorHandling(
             `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`, 
-            { /* options if needed */ }, 
-            session.access_token // Pass token
+            { }, 
+            session.access_token
         );
         setErrors(errorsResponse.data);
         setTotalCount(errorsResponse.totalCount);
@@ -212,10 +206,7 @@ export default function ProjectErrorsPage() {
       } catch (err: any) {
         console.error('Error fetching project data or errors:', err);
         setFetchError(err.message || 'Failed to load data.');
-        // Handle 401 specifically if needed
         if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
-            // Maybe trigger sign out or show specific message?
-            // signOut(); // Example: Force sign out on persistent 401
         }
       } finally {
         setLoading(false);
@@ -223,18 +214,14 @@ export default function ProjectErrorsPage() {
     };
 
     fetchData();
-    // Add loadingAuth and session to dependency array
   }, [loadingAuth, session, projectId, currentPage, limit, API_BASE_URL, navigate]); 
 
-  // --- Realtime Subscription Setup ---
   useEffect(() => {
-    // Depend on session instead of local user state
     if (!session || !projectId) return;
 
     console.log(`[Realtime] Setting up subscription for project: ${projectId}`);
 
-    // Define the function to handle incoming new errors
-    const handleNewError = (payload: any) => {
+    const handleNewError = (payload: { eventType: string; new: ApiError }) => {
       console.log(`[Realtime] handleNewError CALLED. Payload:`, payload);
       
       if (payload.eventType !== 'INSERT') {
@@ -247,103 +234,80 @@ export default function ProjectErrorsPage() {
            return;
       }
 
-      const newError = payload.new as ApiError; // Cast the payload to our ApiError type
+      const newError = payload.new;
       console.log(`[Realtime] Processing new error with ID: ${newError.id}`);
 
-      // Check if the error (by ID) is already in the list
-      setErrors((currentErrors) => {
+      setErrors((currentErrors: ApiError[]) => {
           console.log(`[Realtime] Current errors count before update attempt: ${currentErrors.length}`);
-          if (currentErrors.some(e => e.id === newError.id)) {
+          if (currentErrors.some((e: ApiError) => e.id === newError.id)) {
               console.log(`[Realtime] Duplicate error received (ID: ${newError.id}), skipping state update.`);
-              return currentErrors; // Return the list unchanged
+              return currentErrors;
           }
-          // Prepend the new error to the list
           const updatedErrors = [newError, ...currentErrors];
           console.log(`[Realtime] Prepending new error. New count should be: ${updatedErrors.length}`);
           return updatedErrors;
       });
       
-      // Increment total count
-      setTotalCount(currentTotal => {
+      setTotalCount((currentTotal: number) => {
           console.log(`[Realtime] Updating total count from ${currentTotal} to ${currentTotal + 1}`);
           return currentTotal + 1;
       });
       
     };
 
-    // Create a Supabase channel instance
-    // Channel names should be unique, project ID is good for this
     const channel: RealtimeChannel = supabase.channel(`project-errors:${projectId}`)
       .on(
-        'postgres_changes', // Listen to database changes
+        'postgres_changes',
         { 
-          event: 'INSERT', // Specifically listen for INSERT events
-          schema: 'public', // On the public schema
-          table: 'errors', // In the 'errors' table
-          filter: `project_id=eq.${projectId}` // *Only* for rows matching this projectId
+          event: 'INSERT',
+          schema: 'public',
+          table: 'errors',
+          filter: `project_id=eq.${projectId}`
         },
-        handleNewError // Call our handler function when an event occurs
+        handleNewError
       )
-      .subscribe((status, err) => { // Optional: Log subscription status/errors
+      .subscribe((status: string, err?: Error) => {
         if (status === 'SUBSCRIBED') {
           console.log(`[Realtime] Successfully subscribed to project ${projectId} errors!`);
         }
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error(`[Realtime] Subscription error for project ${projectId}:`, status, err);
-          // Optionally set an error state here to inform the user
-          setFetchError(`Realtime connection failed: ${status}. Please refresh.`);
+          setFetchError(`Realtime connection failed: ${status}. ${err?.message || ''}`);
         }
         if (status === 'CLOSED'){
              console.log(`[Realtime] Subscription closed for project ${projectId}.`);
         }
       });
 
-    // --- Cleanup Function ---
-    // This runs when the component unmounts or projectId changes
     return () => {
       console.log(`[Realtime] Cleaning up subscription for project: ${projectId}`);
       if (channel) {
-        supabase.removeChannel(channel).catch(error => {
+        supabase.removeChannel(channel).catch((error: Error) => {
             console.error('[Realtime] Error removing channel:', error);
         });
       }
     };
 
-  }, [supabase, projectId, session]); // Dependencies: Re-run if supabase client, projectId, or session changes
-  // --- End Realtime Subscription Setup ---
+  }, [supabase, projectId, session]);
 
-  // --- Filtered Errors --- 
   const filteredErrors = useMemo(() => {
-      // Start with the full errors list
       let tempErrors = errors;
-
-      // Apply level filter first (if not 'all')
       if (levelFilter !== 'all') {
-          tempErrors = tempErrors.filter(error => error.level?.toLowerCase() === levelFilter);
+          tempErrors = tempErrors.filter((error: ApiError) => error.level?.toLowerCase() === levelFilter);
       }
-
-      // Apply search term filter
       if (debouncedSearchTerm) {
           const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
-          tempErrors = tempErrors.filter(error => 
+          tempErrors = tempErrors.filter((error: ApiError) => 
               error.message.toLowerCase().includes(lowerCaseSearchTerm)
-              // Optionally filter by stack trace or metadata as well:
-              // || (error.stack_trace && error.stack_trace.toLowerCase().includes(lowerCaseSearchTerm))
-              // || (error.metadata && JSON.stringify(error.metadata).toLowerCase().includes(lowerCaseSearchTerm))
           );
       }
+      return tempErrors;
+  }, [errors, debouncedSearchTerm, levelFilter]);
 
-      return tempErrors; // Return the doubly filtered list
-  }, [errors, debouncedSearchTerm, levelFilter]); // Add levelFilter to dependencies
-  // --- End Filtered Errors ---
-
-  // --- Sorted Errors ---
   const sortedAndFilteredErrors = useMemo(() => {
-      let items = [...filteredErrors]; // Create a mutable copy
-
-      items.sort((a, b) => {
+      let items = [...filteredErrors];
+      items.sort((a: ApiError, b: ApiError) => {
           let valA, valB;
-
           if (sortKey === 'received_at') {
               valA = new Date(a.received_at).getTime();
               valB = new Date(b.received_at).getTime();
@@ -351,9 +315,8 @@ export default function ProjectErrorsPage() {
               valA = a.message.toLowerCase();
               valB = b.message.toLowerCase();
           } else {
-              return 0; // Should not happen with current types
+              return 0;
           }
-
           if (valA < valB) {
               return sortDirection === 'asc' ? -1 : 1;
           }
@@ -362,10 +325,8 @@ export default function ProjectErrorsPage() {
           }
           return 0;
       });
-
       return items;
   }, [filteredErrors, sortKey, sortDirection]);
-  // --- End Sorted Errors ---
 
   const totalPages = Math.ceil(totalCount / limit);
 
@@ -381,209 +342,200 @@ export default function ProjectErrorsPage() {
     }
   };
 
-  // Function to open the modal with the selected error
   const handleRowClick = (error: ApiError) => {
     setSelectedError(error);
     setIsModalOpen(true);
   };
 
-  // Function to close the modal
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setSelectedError(null); // Clear selected error when closing
+    setSelectedError(null);
   };
 
-  // --- Sort Handler ---
   const handleSort = (key: 'received_at' | 'message') => {
       if (key === sortKey) {
-          // If clicking the same key, just reverse the direction
-          setSortDirection(prevDirection => (prevDirection === 'asc' ? 'desc' : 'asc'));
+          setSortDirection((prevDirection: 'asc' | 'desc') => (prevDirection === 'asc' ? 'desc' : 'asc'));
       } else {
-          // If clicking a new key, set the new key and the default direction
           setSortKey(key);
           setSortDirection(key === 'received_at' ? 'desc' : 'asc');
       }
   };
-  // --- End Sort Handler ---
 
-  // Helper to render sort icon
   const renderSortIcon = (key: 'received_at' | 'message') => {
       if (sortKey !== key) return null;
-      return sortDirection === 'asc' ? 
-          <ArrowUpIcon className={styles.sortIcon} /> : 
-          <ArrowDownIcon className={styles.sortIcon} />;
+      const Icon = sortDirection === 'asc' ? ArrowUpIcon : ArrowDownIcon;
+      return <Icon className="ml-2 h-4 w-4 text-muted-foreground" />;
   };
 
   return (
-    <div className={styles.pageWrapper}>
-       {/* Header - Consistent with Dashboard */}
-       <header className={styles.header}>
-         <Link to="/dashboard" className={styles.logoLink}>
-           <ArrowLeftIcon className={styles.backIcon} />
-           <div className={styles.logoCircle}><span>E</span></div>
-           <span className={styles.logoText}>Errly</span>
+    <div className="flex min-h-screen w-full flex-col bg-muted/40 dark:bg-zinc-900">
+       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 dark:bg-zinc-950 dark:border-zinc-800">
+         <Link to="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary-foreground mr-4">
+            <ArrowLeftIcon className="h-5 w-5 text-muted-foreground" />
+            <img src="/lovable-uploads/carbon.svg" alt="Errly Logo" className="h-6 w-6" />
+            <span className="sr-only">Errly</span>
          </Link>
-         <div className={styles.headerRight}>
-           {authUser && <span className={styles.userEmail}>{authUser.email}</span>}
+         <div className="relative ml-auto flex-1 md:grow-0">
+         </div>
+         <div className="flex items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
+           {authUser && <span className="text-sm text-muted-foreground hidden md:inline-block">{authUser.email}</span>}
            <LogoutButton />
          </div>
        </header>
 
-      {/* Main Content */}
-       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className={styles.mainContent}
-      >
-         <h1 className={styles.pageTitle}>Errors for: {project ? project.name : 'Loading project...'}</h1>
+       <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+         <h1 className="text-2xl font-semibold leading-none tracking-tight mt-4">
+            Errors for: {project ? project.name : 'Loading project...'}
+          </h1>
 
-        {/* Filter Section */}
-        <div className={styles.filterControls}>
-          {/* Search Input */}
-           <div className={styles.searchContainer}>
-             <MagnifyingGlassIcon className={styles.searchIcon} />
-             <input
-               type="text"
+         <div className="flex flex-wrap items-center gap-4">
+           <div className="relative flex-1 md:grow-0">
+             <MagnifyingGlassIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+             <Input
+               type="search"
                placeholder="Filter by message..."
                value={searchTerm}
-               onChange={(e) => setSearchTerm(e.target.value)}
-               className={styles.searchInput}
+               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+               className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[320px] dark:bg-zinc-900"
              />
            </div>
-           {/* Level Filter Buttons */}
-           <div className={styles.levelFilterContainer}>
-                <button 
-                  onClick={() => setLevelFilter('all')} 
-                  className={`${styles.levelFilterButton} ${levelFilter === 'all' ? styles.activeFilter : ''}`}
-                >
-                  All
-                </button>
-                <button 
-                  onClick={() => setLevelFilter('error')} 
-                  className={`${styles.levelFilterButton} ${styles.levelErrorFilter} ${levelFilter === 'error' ? styles.activeFilter : ''}`}
-                >
-                  Errors
-                </button>
-                <button 
-                  onClick={() => setLevelFilter('warn')} 
-                  className={`${styles.levelFilterButton} ${styles.levelWarnFilter} ${levelFilter === 'warn' ? styles.activeFilter : ''}`}
-                >
-                  Warnings
-                </button>
-                <button 
-                  onClick={() => setLevelFilter('info')} 
-                  className={`${styles.levelFilterButton} ${styles.levelInfoFilter} ${levelFilter === 'info' ? styles.activeFilter : ''}`}
-                >
-                  Info
-                </button>
-                <button 
-                  onClick={() => setLevelFilter('log')} 
-                  className={`${styles.levelFilterButton} ${styles.levelLogFilter} ${levelFilter === 'log' ? styles.activeFilter : ''}`}
-                >
-                  Logs
-                </button>
+           <div className="flex flex-wrap items-center gap-2 ml-auto">
+              {(['all', 'error', 'warn', 'info', 'log'] as const).map((level) => {
+                const details = getLevelDetails(level);
+                const isActive = levelFilter === level;
+                const Icon = details.icon; 
+                return (
+                  <Button
+                    key={level}
+                    variant={isActive ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setLevelFilter(level)}
+                    className={`capitalize ${isActive ? (level === 'all' ? details.filterColorClass : details.filterColorClass) : ''}`}
+                  >
+                    <Icon className={`mr-2 h-4 w-4 ${isActive ? '' : 'text-muted-foreground'}`} />
+                    {level}
+                  </Button>
+                );
+              })}
            </div>
          </div>
 
-        {loading && (
-          <div className={styles.loadingContainer}>
-            <div className={styles.loadingSpinner}></div>
-            <p>Loading errors...</p>
-          </div>
-        )}
+         {loading && (
+          <div className="flex items-center justify-center py-12"> 
+             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div> 
+             <p className="ml-3 text-muted-foreground">Loading errors...</p>
+           </div>
+         )}
 
-        {fetchError && (
-          <div className={styles.errorContainer}>
-            <p className={styles.errorMessage}>Error: {fetchError}</p>
-            {/* Optional: Add a retry button */}
-          </div>
-        )}
-
-        {!loading && !fetchError && (
-          <>
-            {/* Table Container */}
-            <div className={styles.errorsTableContainer}>
-              {/* Conditionally render table only if there are errors to show (after filtering) */}
-              {sortedAndFilteredErrors.length > 0 ? (
-                <table className={styles.errorsTable}>
-                  <thead>
-                    <tr>
-                      {/* Table Header Row */}
-                      <th>
-                        <button onClick={() => handleSort('message')} className={styles.sortButton}>
-                          Message
-                          {renderSortIcon('message')}
-                        </button>
-                      </th>
-                      <th>
-                        <div className={styles.tableHeader}>Stack Trace (Preview)</div>
-                      </th>
-                      <th>
-                        <div className={styles.tableHeader}>Metadata (Preview)</div>
-                      </th>
-                      <th>
-                        <button onClick={() => handleSort('received_at')} className={styles.sortButton}>
-                          Received
-                          {renderSortIcon('received_at')}
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Map over FILTERED errors */} 
-                    {sortedAndFilteredErrors.map((error) => (
-                      <tr 
-                        key={error.id} 
-                        onClick={() => handleRowClick(error)} 
-                        className={`${styles.errorRow} ${getLevelClassName(error.level)}`}
-                      >
-                        <td className={styles.messageCell}>{error.message}</td>
-                        <td className={styles.stackTraceCell}>
-                          <pre>{truncateString(error.stack_trace, 100)}</pre>
-                        </td>
-                        <td className={styles.metadataCell}>
-                          <pre>{formatMetadata(error.metadata, 100)}</pre>
-                        </td>
-                        <td className={styles.dateCell}>
-                          {formatDistanceToNow(new Date(error.received_at), { addSuffix: true })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                 // Show message if filters result in no errors
-                 <p className={styles.noErrorsMessage}>
-                     {searchTerm ? 'No errors match your filter.' : 'No errors found for this project yet.'}
-                 </p>
-              )}
+         {fetchError && (
+           <Alert variant="destructive"> 
+              <ExclamationTriangleIcon className="h-4 w-4" />
+              <AlertTitle>Error Loading Data</AlertTitle>
+              <AlertDescription>
+                {fetchError}
+              </AlertDescription>
+           </Alert>
+         )}
+        
+         {/* Table and Pagination Section */}
+         {!loading && !fetchError && (
+            <Card className="dark:bg-zinc-900"> {/* Use Card component for container */}
+                <CardContent className="p-0"> {/* Remove CardContent padding if table handles it */}
+                    <div className="overflow-x-auto"> {/* Make table scrollable on small screens */}
+                        <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700"> 
+                            <thead className="bg-zinc-50 dark:bg-zinc-800"> 
+                                <tr>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[30%]">
+                                        <Button variant="ghost" size="sm" onClick={() => handleSort('message')} className="-ml-2 h-8 data-[state=open]:bg-accent">
+                                            Message {renderSortIcon('message')}
+                                        </Button>
+                                    </th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[30%]">
+                                        Stack Trace (Preview)
+                                    </th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[25%]">
+                                        Metadata (Preview)
+                                    </th>
+                                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 w-[15%]">
+                                         <Button variant="ghost" size="sm" onClick={() => handleSort('received_at')} className="-ml-2 h-8 data-[state=open]:bg-accent">
+                                            Received {renderSortIcon('received_at')}
+                                        </Button>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-900">
+                                {sortedAndFilteredErrors.length > 0 ? (
+                                    sortedAndFilteredErrors.map((error: ApiError) => (
+                                        <tr 
+                                            key={error.id} 
+                                            onClick={() => handleRowClick(error)} 
+                                            className={`cursor-pointer border-l-4 transition-colors ${getLevelRowClassName(error.level)} dark:border-l-4`}
+                                        >
+                                            <td className="whitespace-normal px-4 py-3 align-top text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                {error.message}
+                                            </td>
+                                            <td className="whitespace-pre-wrap px-4 py-3 align-top font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                                                {truncateString(error.stack_trace, 150)} 
+                                            </td>
+                                            <td className="whitespace-pre-wrap px-4 py-3 align-top font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                                                {formatMetadata(error.metadata, 150)}
+                                            </td>
+                                            <td className="whitespace-nowrap px-4 py-3 align-top text-xs text-zinc-500 dark:text-zinc-400">
+                                                {formatDistanceToNow(new Date(error.received_at), { addSuffix: true })}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={4} className="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                                            {searchTerm || levelFilter !== 'all' ? 'No errors match your filter.' : 'No errors found for this project yet.'}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+                 {/* Pagination Controls - Move inside Card or keep separate? Let's keep separate for now */} 
+            </Card>
+         )}
+         
+        {/* Pagination - Refactor using Tailwind and Button */}
+        {!loading && !fetchError && totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between px-2">
+                <div className="text-xs text-muted-foreground">
+                    Page {currentPage} of {totalPages} (Total: {totalCount} errors)
+                </div>
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePreviousPage}
+                        disabled={currentPage === 1}
+                    >
+                        <ChevronLeftIcon className="mr-1 h-4 w-4" />
+                        Previous
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages}
+                    >
+                        Next
+                        <ChevronRightIcon className="ml-1 h-4 w-4" />
+                    </Button>
+                </div>
             </div>
-
-            {/* Pagination Controls - Keep based on totalCount from API for simplicity */}
-            {totalPages > 1 && (
-              <div className={styles.paginationControls}>
-                <button onClick={handlePreviousPage} disabled={currentPage === 1} className={styles.paginationButton}>
-                  <ChevronLeftIcon /> Previous
-                </button>
-                <span className={styles.pageInfo}>
-                  Page {currentPage} of {totalPages} (Total: {totalCount})
-                </span>
-                <button onClick={handleNextPage} disabled={currentPage === totalPages} className={styles.paginationButton}>
-                  Next <ChevronRightIcon />
-                </button>
-              </div>
-            )}
-          </>
         )}
-       </motion.div>
 
-      {/* Render the Modal */} 
-      <ErrorDetailModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        error={selectedError}
-      />
-    </div>
+       </main>
+
+       <ErrorDetailModal
+         isOpen={isModalOpen}
+         onClose={handleCloseModal}
+         error={selectedError}
+       />
+     </div>
   );
 } 
