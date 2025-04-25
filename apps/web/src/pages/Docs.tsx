@@ -61,10 +61,12 @@ console.text('User signup failed', { email: 'test@example.com' });`;
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { setKey, patch } from 'errly-sdk'; // Corrected import
+import { setKey, patch } from 'errly-sdk'; // Import Errly functions
 
 // --- Initialize Errly ---
-setKey('YOUR_ERRLY_PROJECT_API_KEY'); // Corrected placeholder
+// Set your project API key (obtainable from the Errly dashboard)
+setKey('YOUR_ERRLY_PROJECT_API_KEY'); 
+// Patch the console object to enable console.text()
 patch();
 // --- End Initialization ---
 
@@ -75,10 +77,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 );`;
 
   const exampleVanilla = 
-`import { setKey, patch } from 'errly-sdk'; // Corrected import
+`import { setKey, patch } from 'errly-sdk'; // Import Errly functions
 
 // --- Initialize Errly ---
-setKey('YOUR_ERRLY_PROJECT_API_KEY'); // Corrected placeholder
+// Set your project API key (obtainable from the Errly dashboard)
+setKey('YOUR_ERRLY_PROJECT_API_KEY');
+// Patch the console object to enable console.text()
 patch();
 // --- End Initialization ---
 
@@ -86,13 +90,27 @@ patch();
 // Your regular JavaScript code...
 function doSomething() {
   try {
-    // ...
+    // ... some operation that might fail ...
+    performPotentiallyFailingOperation(); 
   } catch (error) {
+    // Log the error to Errly if the operation fails
     console.text("Error in doSomething:", error);
   }
 }
 
-document.getElementById('myButton').addEventListener('click', doSomething);
+// Example: Attach the function to a button click
+document.getElementById('myButton')?.addEventListener('click', doSomething);
+
+// Placeholder for the potentially failing operation
+function performPotentiallyFailingOperation() {
+  // Simulate an error condition for demonstration
+  if (Math.random() < 0.5) { 
+    throw new Error("Simulated failure in operation");
+  }
+  console.log("Operation succeeded (simulation)."); 
+}
+
+// Ensure the button exists in your HTML, e.g., <button id="myButton">Do Something</button>
 // ...`;
 
   return (
