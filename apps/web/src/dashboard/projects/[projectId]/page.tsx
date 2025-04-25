@@ -52,7 +52,8 @@ interface ErrorApiResponse {
   limit: number;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+// Revert back to import.meta.env for Vite
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 async function fetchWithErrorHandling(url: string, options?: RequestInit, token?: string | null): Promise<any> {
   let response;
@@ -204,8 +205,8 @@ export default function ProjectErrorsPage() {
       console.log('[fetchData] Using API_BASE_URL:', API_BASE_URL);
 
       try {
-        const projectUrl = `${API_BASE_URL}/api/projects/${projectId}`;
-        const errorsUrl = `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`;
+        const projectUrl = `${API_BASE_URL}/projects/${projectId}`;
+        const errorsUrl = `${API_BASE_URL}/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`;
         
         // Log the specific URLs being fetched
         console.log('[fetchData] Fetching project details from:', projectUrl);
