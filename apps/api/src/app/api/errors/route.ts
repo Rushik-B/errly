@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '../../../lib/supabase/admin'
-import { supabaseServiceClient } from '../../../lib/supabaseClient'
-import { getUserFromToken } from '../../../lib/authUtils'
+import { supabaseAdmin } from '../../../lib/supabase/admin.ts'
+import { supabaseServiceClient } from '../../../lib/supabaseClient.ts'
+import { getUserFromToken } from '../../../lib/authUtils.ts'
 import { z } from 'zod' // Import Zod
 
 // Restore dashboard-specific CORS headers (for GET requests)
@@ -54,51 +54,77 @@ export async function GET(request: NextRequest) {
   const user = await getUserFromToken(request);
 
   if (!user) { // Check for user object
-    // Add back explicit dashboard headers for errors
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
-  // Use user.id directly
-  const userId = user.id;
+  
+  // This is the auth user ID (X)
+  const authUserId = user.id;
+  let publicUserId: string; // To store the public user ID (Y)
 
   // Extract query parameters
-  const { searchParams } = new URL(request.url)
-  const projectId = searchParams.get('projectId')
-  const pageParam = searchParams.get('page')
-  const limitParam = searchParams.get('limit')
+  const { searchParams } = new URL(request.url);
+  const projectId = searchParams.get('projectId');
+  const pageParam = searchParams.get('page');
+  const limitParam = searchParams.get('limit');
 
   if (!projectId) {
-    // Add back explicit dashboard headers
     return NextResponse.json({ error: 'Missing required query parameter: projectId' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
-  // --- Validate Project Ownership ---
+  // --- Get Public User ID (Y) --- 
+  try {
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from('users') // Query public.users table
+      .select('id') // Select its primary key (Y)
+      .eq('supabase_auth_id', authUserId) // Match using the auth ID (X)
+      .single();
+
+    if (userError) {
+      console.error(`[API GET /errors] Error fetching public user ID for auth ID ${authUserId}:`, userError.message);
+      throw new Error('Failed to find user profile.'); 
+    }
+    if (!userData) {
+      console.error(`[API GET /errors] Public user profile not found for auth ID ${authUserId}.`);
+      // If the public profile doesn't exist, they cannot own any projects.
+      return NextResponse.json({ error: 'User profile not found, cannot access projects' }, { status: 404, headers: dashboardCorsHeaders });
+    }
+    publicUserId = userData.id; // Store the correct public user ID (Y)
+    console.log(`[API GET /errors] Found public user ID ${publicUserId} for auth ID ${authUserId}. Validating project ${projectId}...`);
+
+  } catch (err: unknown) {
+    const errorMessage = (err instanceof Error) ? err.message : 'Failed to retrieve user information';
+    console.error(`[API GET /errors] Error during user lookup: ${errorMessage}`);
+    return NextResponse.json({ error: 'Failed to process user information' }, { status: 500, headers: dashboardCorsHeaders }); 
+  }
+  // --- End Get Public User ID --- 
+
+  // --- Validate Project Ownership using Public User ID (Y) ---
   try {
     const { data: project, error: projectError } = await supabaseAdmin
       .from('projects')
       .select('id') // Only need to confirm existence and ownership
       .eq('id', projectId)
-      .eq('user_id', userId)
-      .maybeSingle() // Use maybeSingle to handle null case gracefully
+      .eq('user_id', publicUserId) // <-- Use publicUserId (Y) for check
+      .maybeSingle(); // Use maybeSingle to handle null case gracefully
 
     if (projectError) {
-      console.error('Error validating project ownership:', projectError.message);
-      // Add back explicit dashboard headers
+      console.error('[API GET /errors] Error validating project ownership:', projectError.message);
       return NextResponse.json({ error: 'Failed to validate project ownership', details: projectError.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
     if (!project) {
-      // If project is null, it means either it doesn't exist or doesn't belong to the user
-      // Add back explicit dashboard headers
+      // If project is null, it means either it doesn't exist or doesn't belong to THIS user (with publicUserId Y)
+      console.warn(`[API GET /errors] Project ${projectId} not found or access denied for public user ${publicUserId}.`);
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
-    // If we reach here, the user owns the project
+    // If we reach here, the user (Y) owns the project (ID: projectId)
+     console.log(`[API GET /errors] Project ${projectId} ownership validated for public user ${publicUserId}. Fetching errors...`);
   } catch (err: unknown) {
     let errorMessage = 'An unexpected error occurred during project validation';
     if (err instanceof Error) {
         errorMessage = err.message;
     }
-    console.error('Unexpected error validating project ownership:', errorMessage);
-    // Add back explicit dashboard headers
+    console.error('[API GET /errors] Unexpected error validating project ownership:', errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
   // --- End Validate Project Ownership ---
