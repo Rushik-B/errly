@@ -11,34 +11,35 @@ const faqData = [
   {
     question: "What is Errly?",
     answer:
-      "Errly is an AI-powered assistant designed to help with interviews, sales calls, and online meetings by providing real-time insights and suggestions.",
+      "Errly is an error alerting service that instantly notifies you via SMS when your app encounters critical errors, so you can respond immediately.",
   },
   {
-    question: "Is Errly detectable?",
+    question: "How easy is it to integrate Errly?",
     answer:
-      "Errly is built with undetectability in mind, aiming to provide seamless assistance without being noticed by other participants in the meeting.",
+      "Integration takes less than 5 minutes. Just add one line of code to your app, and you're good to go.",
   },
   {
-    question: "How does the free trial work?",
+    question: "Does Errly support my stack?",
     answer:
-      "The free trial allows you to experience Errly's core features for a limited time. You can explore its capabilities before deciding on a subscription.",
+      "Yes! Errly is language-agnostic and integrates easily via a simple REST API. Official SDKs coming soon.",
   },
   {
-    question: "What platforms does Errly support?",
+    question: "How does Errly prevent alert spam?",
     answer:
-      "Errly is designed to work with popular meeting platforms like Zoom, Google Meet, and others. Check our documentation for the full list.",
+      "Errly intelligently groups similar errors and uses rate-limiting to ensure alerts remain meaningful and actionable.",
   },
   {
-    question: "Can I cancel my subscription anytime?",
+    question: "Can I cancel anytime?",
     answer:
-      "Yes, you can cancel your subscription at any time through your account settings. Please refer to our cancellation policy for details.",
+      "Absolutely. There are no lock-ins or hidden conditions—you can easily cancel your subscription anytime.",
   },
 ];
 
 export default function FAQSection() {
   return (
-    <section className="py-16 md:py-24 bg-black text-gray-200 px-4" style={{
-      marginTop: "-50px"
+    <section className="py-16 md:py-24 bg-black text-gray-200 px-5" style={{
+      marginTop: "-50px",
+      
     }}>
       <div className="container mx-auto max-w-4xl">
         <h2 className="text-center font-semibold tracking-tight text-slate-200 drop-shadow-lg md:text-6xl sm:text-5xl text-4xl mb-12">
@@ -55,7 +56,7 @@ export default function FAQSection() {
                 {item.question}
                 <Plus className="h-5 w-5 text-white/70 shrink-0" />
               </AccordionTrigger>
-              <AccordionContent className="text-gray-300 pt-4 pb-6">
+              <AccordionContent className="text-gray-300 pt-4 pb-6 text-lg">
                 {item.answer}
               </AccordionContent>
             </AccordionItem>

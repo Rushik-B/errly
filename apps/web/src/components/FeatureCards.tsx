@@ -8,70 +8,47 @@ import { motion } from 'framer-motion'
 /* ------------------------------------------------------------------ */
 const CARD_LIST = [
   {
-    key: "tab",
-    title: "Active Tab Detection",
-    desc: "Toggle the visibility of the window while keeping your cursor on the screen.",
+    key: "alerts",
+    title: "Instant Error Alerts",
+    desc: "Receive real-time SMS notifications whenever critical errors occur in your application.",
     body: (
       <div className="mt-5 text-sm text-white/60">
         <div className="flex items-center gap-2 mb-2">
-          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
-          <span>Thinking...</span>
+          <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+          <span>Alert Sent!</span>
         </div>
-        <div className="mb-0.5">Sales call tips:</div>
-        <span className="text-white/50 text-xs">Want to ask about their budget? Try: "What's a budget range you're comfortable with for this project?"</span>
+        <span className="text-white/50 text-xs">SMS notification delivered to +1-XXX-XXX-XXXX.</span>
       </div>
     ),
   },
   {
-    key: "screen",
-    title: "Screen Sharing",
-    desc: "Completely invisible during screen sharing, cannot be seen by the other side.",
+    key: "setup",
+    title: "Easy One-Line Setup",
+    desc: "Add Errly to your project instantly with just one line of code. Zero friction, instant protection.",
     body: (
-      <div className="w-full flex flex-col items-start mt-6">
-        <img
-          className="rounded-xl border-0 w-full h-36 object-cover mb-2 pointer-events-none select-none"
-          src="/lovable-uploads/65999347-393f-4379-bac8-54c6c65d6552.png"
-          alt="Placeholder"
-          draggable={false}
-          style={{
-            filter:
-              "drop-shadow(0 0 28px #0ff9) drop-shadow(0 0 8px #86A5FF55)",
-            objectFit: "cover",
-            background:
-              "linear-gradient(130deg, rgba(155,135,245,0.2) 0%, rgba(51,195,240,0.12) 100%)",
-          }}
-        />
-        <div>
-          <span className="block text-white/80 font-medium mt-2">Listening...</span>
-          <span className="block text-white/70 text-xs mt-1">
-            Meeting summary so far: The meeting covered Q1 sales performance, feedback on pricing, and upcoming product.
-          </span>
-        </div>
-      </div>
-    ),
-  },
-  {
-    key: "reasoning",
-    title: "Response Reasoning",
-    desc: "Every response gets broken down clearly. Each step explained for easy understanding.",
-    body: (
-      <div className="mt-5 text-sm text-white/60">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
-          <span>Analyzing...</span>
-        </div>
-        <span className="block text-xs text-white/50 mt-0.5">
-          This code sends a GET request to a placeholder API endpoint.
+        <div className="mt-5 text-sm text-white/60">
+         <span className="block text-xs text-white/50 mt-0.5">
+          Just import and initialize:
         </span>
         <pre className="bg-white/5 p-2 rounded-lg text-xs text-blue-200 mt-2 mb-1 font-mono overflow-x-auto">
-{`import requests
+{`import Errly from '@errly/sdk';
 
-# The URL for the API endpoint you want to reach
-url = "https://api.example.com/data"
-
-# Perform a GET request
-response = requests.get(url)`}
+Errly.init({ projectId: 'YOUR_PROJECT_ID' });`}
         </pre>
+      </div>
+    ),
+  },
+  {
+    key: "rate-limiting",
+    title: "Intelligent Rate Limiting",
+    desc: "Stay informed without getting spammed—Errly smartly filters duplicates, keeping alerts actionable.",
+    body: (
+       <div className="mt-5 text-sm text-white/60">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full"></span>
+          <span>Filtering Duplicates...</span>
+        </div>
+        <span className="text-white/50 text-xs">5 identical errors suppressed. 1 unique alert sent.</span>
       </div>
     ),
   },

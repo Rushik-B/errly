@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 // import { motion } from 'framer-motion'; // Removed framer-motion import
-import { Button } from './ui/button';
+import { Button } from './ui/button.tsx';
 import { ArrowRight, Check } from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
@@ -14,10 +14,10 @@ const plans = [
     monthly: { price: '$10', subtitle: '/mo' },
     yearly: { price: '$100', subtitle: '/yr' },
     features: [
-      'Up to 5,000 error alerts',
-      'SMS notifications',
+      'Up to 5,000 alerts/month',
+      'Instant SMS notifications',
       'Email support',
-      'Basic dashboard access',
+      'Basic dashboard features',
     ],
     cta: {
       text: 'Start Free Trial',
@@ -32,11 +32,11 @@ const plans = [
     monthly: { price: '$49', subtitle: '/mo' },
     yearly: { price: '$490', subtitle: '/yr' },
     features: [
-      'Up to 50,000 error alerts',
-      'Voice & SMS notifications',
-      'Advanced dashboard & analytics',
+      'Up to 50,000 alerts/month',
+      'SMS and Voice Call notifications',
+      'Real-time analytics dashboard',
       'Unlimited team members',
-      'Priority chat support',
+      'Priority support',
     ],
     cta: {
       text: 'Get Started',
@@ -54,11 +54,11 @@ const plans = [
     monthly: { price: 'Custom', subtitle: 'Contact us' },
     yearly: { price: 'Custom', subtitle: 'Contact us' },
     features: [
-      'Unlimited error alerts',
-      'Custom notification workflows',
+      'Unlimited alerts',
+      'Custom alert workflows (Slack, voice, SMS, email)',
       'Dedicated account manager',
-      'Enterprise‑grade analytics',
-      'SSO & custom integrations',
+      'Enterprise analytics & integrations',
+      'SSO & advanced security',
     ],
     cta: {
       text: 'Contact Sales',
@@ -89,10 +89,10 @@ export default function PricingSection() {
     >
       {/* Heading ---------------------------------------------------- */}
       <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white/90 text-center tracking-tight mb-6 max-w-5xl">
-        Choose Your Error‑Monitoring Plan
+        Simple Pricing, Powerful Alerts.
         <br />
         <span className="text-white/70 font-semibold text-xl sm:text-2xl md:text-3xl">
-          Perfect fits for every team size
+          Choose a plan that fits your needs. Upgrade or cancel anytime.
         </span>
       </h2>
 

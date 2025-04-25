@@ -44,18 +44,17 @@ export default function NavBar() {
       }`}
     >
       <div
-        className={`flex items-center justify-between transition-all duration-300 ${wrapperClasses}`}
+        className={`relative flex items-center transition-all duration-300 ${wrapperClasses}`}
       >
         {/* ─────────── Logo ─────────── */}
         <a href="/" className="flex items-center gap-2">
-          <span className="bg-white/10 rounded-full p-2">
-            <span className="sr-only">Logo</span>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="16" fill="#101015" />
-              <circle cx="16" cy="16" r="7" stroke="#fff" strokeWidth="2" />
-              <rect x="7" y="23" width="18" height="3" rx="1.5" fill="#fff" />
-            </svg>
-          </span>
+          <img
+            src="/lovable-uploads/errly-logo.png"
+            alt="Errly Logo"
+            width={32}
+            height={32}
+            className="rounded-full"
+          />
           <span className="ml-1 text-2xl font-semibold tracking-tight text-white">
             Errly
           </span>
@@ -63,7 +62,7 @@ export default function NavBar() {
 
         {/* ─────────── Links ─────────── */}
         <ul
-          className={`mx-auto hidden md:flex ${listGap} transition-all duration-300`}
+          className={`absolute left-1/2 transform -translate-x-1/2 hidden md:flex ${listGap} transition-all duration-300`}
         >
           {NAV_LINKS.map((item) => (
             <li key={item.label}>
@@ -78,7 +77,7 @@ export default function NavBar() {
         </ul>
 
         {/* ─────────── Auth Buttons / User Info ─────────── */}
-        <div className="flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-3">
           {loading ? (
             <div className="h-8 w-24 rounded-full bg-white/10 animate-pulse"></div>
           ) : user ? (

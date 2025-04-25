@@ -5,30 +5,33 @@ import { Instagram, Github } from "lucide-react";
 export default function FooterLuxury() {
   return (
     <main 
-      className="relative h-[650px] w-full overflow-hidden bg-black text-gray-200 bg-cover bg-top"
-      style={{ backgroundImage: "url('/lovable-uploads/screenshot.png')" }}
+      className="relative h-[650px] w-full overflow-hidden bg-black text-gray-200 bg-cover bg-[center_20%]"
+      style={{ backgroundImage: "url('/lovable-uploads/footer.jpg')" }}
     >
+      {/* Top Fade Overlay */}
+      <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-black to-transparent pointer-events-none" />
+
       {/* Slight dark overlay to enhance text readability */}
-      <div className="absolute inset-0 bg-black/30" />
+      <div className="absolute inset-0 bg-black/30 pointer-events-none" />
 
       {/* Content container - above the overlay */}
       <div className="relative z-10 h-full flex flex-col">
         {/* ------------ HERO ------------ */}
-        <section className="flex flex-col items-center justify-center gap-8 px-4 pt-16 text-center">
+        <section className="flex flex-col items-center justify-center gap-8 px-4 pt-0 text-center">
           <h1 className="font-semibold tracking-tight text-slate-200 drop-shadow-lg md:text-6xl sm:text-5xl text-4xl">
-            Take The Short Way.
+            Ready to fix errors before your customers see them?
           </h1>
+          <p className="text-lg text-slate-300 drop-shadow">
+            Try Errly today—no credit card required.
+          </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
             {/* Mac button */}
             <a
-              href="#"
+              href="/coming-soon"
               className="
-                flex items-center gap-2 px-7 py-3 rounded-full shadow-[0_2px_12px_0_rgba(74,175,255,0.16)] text-base font-medium bg-white/90 hover:bg-white transition-colors text-black border border-white/50
+                relative hidden md:block text-center rounded-full ring-3 ring-white/15 bg-gradient-to-t from-gray-300/70 to-white hover:bg-white text-black px-5 py-2.5 transition-colors duration-150 font-bold text-lg
               "
-              style={{
-                fontWeight: 600
-              }}
             >
               Start Your Free Trial
             </a>
@@ -37,27 +40,34 @@ export default function FooterLuxury() {
             <a
               href="/coming-soon"
               className="
-                flex items-center gap-2 px-7 py-3 rounded-full text-white/95 border border-white/30 bg-[#232B4C]/60 hover:bg-[#21284a] transition-colors text-base font-semibold shadow
+                relative hidden md:block rounded-full bg-white/10 hover:bg-white/25 px-7 py-3 transition-colors duration-150 backdrop-blur
               "
-              style={{
-                fontWeight: 600
-              }}
             >
-              See how it works
+              <span className="flex items-center justify-center font-bold text-lg bg-clip-text text-transparent bg-gradient-to-t from-gray-300/70 to-white">
+                See how Errly works
+              </span>
             </a>
           </div>
         </section>
 
 
         {/* ------------ FOOTER GLASS CARD ------------ */}
-        <footer className="absolute bottom-8 left-1/2 w-[90%] max-w-5xl -translate-x-1/2 rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl shadow-xl md:p-12">
+        <footer className="absolute bottom-7 left-1/2 w-[90%] max-w-5xl -translate-x-1/2 rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl shadow-xl md:p-12">
           <div className="grid gap-8 md:grid-cols-3">
             {/* Brand & socials */}
             <div className="space-y-4">
-              <div className="text-2xl font-semibold">🌀 Errly</div>
+              <div className="flex items-center gap-2">
+                <img
+                  src="/lovable-uploads/errly-logo.png"
+                  alt="Errly Logo"
+                  width={28}  // Slightly smaller for the footer
+                  height={28}
+                  className="rounded-full"
+                />
+                <span className="text-2xl font-semibold">Errly</span>
+              </div>
               <p className="text-sm leading-relaxed text-gray-300">
-                Errly is an undetectable AI‑powered assistant built for interviews,
-                sales calls, Zoom meetings, and more.
+                Errly helps developers detect critical errors instantly through real-time SMS notifications, letting you proactively manage reliability.
               </p>
               <div className="flex items-center gap-4 pt-2">
                 <a href="#" className="transition-all hover:font-bold hover:brightness-150 hover:scale-110">
@@ -85,22 +95,22 @@ export default function FooterLuxury() {
               </h3>
               <ul className="space-y-2 text-sm">
                 <li>
-                  <a href="#" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
+                  <a href="/coming-soon" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
                     Refund policy
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
+                  <a href="/coming-soon" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
                     Terms of Service
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
+                  <a href="/coming-soon" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
                     Privacy policy
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
+                  <a href="/coming-soon" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
                     Cancellation Policy
                   </a>
                 </li>
@@ -114,12 +124,12 @@ export default function FooterLuxury() {
               </h3>
               <ul className="space-y-2 text-sm">
                 <li>
-                  <a href="#" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
+                  <a href="/coming-soon" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
                     Help Center
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
+                  <a href="/coming-soon" className="transition-all hover:text-white hover:font-bold hover:brightness-150">
                     Get Started
                   </a>
                 </li>
