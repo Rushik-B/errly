@@ -76,8 +76,13 @@ export async function GET(
             console.warn(`[API GET /projects/${projectId}] Project not found for public user ID ${publicUserId}`);
             return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
         } else {
-           // Explicitly check if error exists before accessing message
-           const errorMessage = error ? error.message : 'Unknown Supabase query error';
+           // More verbose check to satisfy TS
+           let errorMessage = 'Unknown Supabase query error';
+           if (error) { 
+              // We know error is not null/undefined here and code is not PGRST116
+              // Access message, potentially casting if TS still complains
+              errorMessage = (error as any)?.message || 'Failed to read error message'; 
+           }
            console.error('[API GET /projects] Supabase query error:', errorMessage);
            return NextResponse.json({ error: 'Failed to fetch project', details: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
         }
