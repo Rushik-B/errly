@@ -1,9 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { supabaseAdmin } from '../../../lib/supabase/admin';
+import { supabaseAdmin } from '../../../lib/supabase/admin.ts';
 // Remove unused imports if getUserSession no longer needs them directly here
 // import { cookies } from 'next/headers'; 
 // import { createServerClient } from '@supabase/ssr'; 
-import { getUserFromToken } from '../../../lib/authUtils';
+import { getUserFromToken } from '../../../lib/authUtils.ts';
 
 // Restore dashboardCorsHeaders constant
 const dashboardCorsHeaders = {
@@ -68,53 +68,81 @@ export async function POST(request: NextRequest) {
   // Use JWT validation
   const user = await getUserFromToken(request); 
 
-  if (!user) { // Check for user object
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders }); 
   }
 
-  // Use user.id directly
-  const userId = user.id; 
+  // This is the auth user ID (X)
+  const authUserId = user.id; 
   let name: string;
+  let publicUserId: string; // Variable to hold the public.users.id (Y)
 
   try {
     const body = await request.json();
     name = (body as { name?: string }).name ?? ''; 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      // Add back explicit headers
       return NextResponse.json({ error: 'Project name is required' }, { status: 400, headers: dashboardCorsHeaders }); 
     }
     name = name.trim(); 
   } catch (_err: unknown) { 
-    // Add back explicit headers
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400, headers: dashboardCorsHeaders }); 
   }
 
+  // --- Add step to get public user ID (Y) --- 
+  try {
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from('users') // Query public.users table
+      .select('id') // Select its primary key (Y)
+      .eq('supabase_auth_id', authUserId) // Match using the auth ID (X)
+      .single();
+
+    if (userError) {
+      console.error(`[API POST /projects] Error fetching public user ID for auth ID ${authUserId}:`, userError.message);
+      throw new Error('Failed to find user profile.'); // Throw internal error
+    }
+    if (!userData) {
+      console.error(`[API POST /projects] Public user profile not found for auth ID ${authUserId}.`);
+      // This case might indicate an inconsistency if the user exists in auth but not public.users
+      throw new Error('User profile not found.'); 
+    }
+    publicUserId = userData.id; // Store the correct public user ID (Y)
+    console.log(`[API POST /projects] Found public user ID ${publicUserId} for auth ID ${authUserId}`);
+
+  } catch (err: unknown) {
+    const errorMessage = (err instanceof Error) ? err.message : 'Failed to retrieve user information';
+    // Don't expose internal error details directly if sensitive
+    return NextResponse.json({ error: 'Failed to process user information' }, { status: 500, headers: dashboardCorsHeaders }); 
+  }
+  // --- End of getting public user ID --- 
+
+  // --- Insert project using the correct public user ID (Y) --- 
   try {
     const { data: newProject, error } = await supabaseAdmin
       .from('projects')
-      .insert({ name: name, user_id: userId })
+      .insert({ name: name, user_id: publicUserId }) // <-- Use publicUserId (Y) here
       .select('id, name, created_at')
       .single();
 
     if (error) {
-      console.error('Supabase insert error:', error.message);
-      // Add back explicit headers
+      console.error('[API POST /projects] Supabase insert error:', error.message);
+      // Check for foreign key violation specifically
+      if (error.code === '23503') { 
+         return NextResponse.json({ error: 'User reference error creating project' }, { status: 500, headers: dashboardCorsHeaders });
+      }
       return NextResponse.json({ error: 'Failed to create project', details: error.message }, { status: 500, headers: dashboardCorsHeaders }); 
     }
 
     if (!newProject) {
-      // Add back explicit headers
       return NextResponse.json({ error: 'Failed to create project, no data returned' }, { status: 500, headers: dashboardCorsHeaders }); 
     }
-    // Add back explicit headers
+
     return NextResponse.json(newProject, { status: 201, headers: dashboardCorsHeaders }); 
   } catch (err: unknown) { 
-     let errorMessage = 'An unexpected error occurred';
+     let errorMessage = 'An unexpected error occurred during project creation';
     if (err instanceof Error) {
         errorMessage = err.message;
     }
-    console.error('Unexpected error creating project:', errorMessage);
-    // Add back explicit headers
+    console.error('[API POST /projects] Unexpected error creating project:', errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders }); 
   }
 } 

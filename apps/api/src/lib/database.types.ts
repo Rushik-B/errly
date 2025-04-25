@@ -44,6 +44,44 @@ export type Database = {
           },
         ]
       }
+      phone_numbers: {
+        Row: {
+          created_at: string
+          id: number
+          is_primary: boolean
+          label: string | null
+          phone_number: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          is_primary?: boolean
+          label?: string | null
+          phone_number: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          is_primary?: boolean
+          label?: string | null
+          phone_number?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phone_numbers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           api_key: string
@@ -100,7 +138,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      set_primary_phone: {
+        Args: { target_user_id: string; target_phone_id: number }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
