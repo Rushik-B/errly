@@ -44,40 +44,44 @@ export default function NavBar() {
       }`}
     >
       <div
-        className={`relative flex items-center transition-all duration-300 ${wrapperClasses}`}
+        className={`flex items-center transition-all duration-300 ${wrapperClasses}`}
       >
         {/* ─────────── Logo ─────────── */}
-        <a href="/" className="flex items-center gap-2">
-          <img
-            src="/lovable-uploads/errly-logo.png"
-            alt="Errly Logo"
-            width={32}
-            height={32}
-            className="rounded-full"
-          />
-          <span className="ml-1 text-2xl font-semibold tracking-tight text-white">
-            Errly
-          </span>
-        </a>
+        <div className="flex-1">
+          <a href="/" className="flex items-center gap-2">
+            <img
+              src="/lovable-uploads/errly-logo.png"
+              alt="Errly Logo"
+              width={32}
+              height={32}
+              className="rounded-full"
+            />
+            <span className="ml-1 text-2xl font-semibold tracking-tight text-white">
+              Errly
+            </span>
+          </a>
+        </div>
 
         {/* ─────────── Links ─────────── */}
-        <ul
-          className={`absolute left-1/2 transform -translate-x-1/2 hidden md:flex ${listGap} transition-all duration-300`}
-        >
-          {NAV_LINKS.map((item) => (
-            <li key={item.label}>
-              <a
-                href={item.href}
-                className="rounded-full px-4 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
+        <div className="flex-none">
+          <ul
+            className={`hidden md:flex ${listGap} transition-all duration-300`}
+          >
+            {NAV_LINKS.map((item) => (
+              <li key={item.label}>
+                <a
+                  href={item.href}
+                  className="rounded-full px-4 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         {/* ─────────── Auth Buttons / User Info ─────────── */}
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex flex-1 items-center justify-end gap-3">
           {loading ? (
             <div className="h-8 w-24 rounded-full bg-white/10 animate-pulse"></div>
           ) : user ? (
