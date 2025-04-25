@@ -26,6 +26,7 @@ interface ApiError {
   received_at: string;
   stack_trace: string | null;
   metadata: any | null;
+  level: string; // Add level field
   // Add other fields returned by the API
 }
 
@@ -112,6 +113,22 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 // --- End Debounce Hook ---
 
+// Helper function to get CSS class based on error level
+const getLevelClassName = (level?: string): string => {
+  switch (level?.toLowerCase()) {
+    case 'error':
+      return styles.levelError;
+    case 'warn':
+      return styles.levelWarn;
+    case 'info':
+      return styles.levelInfo;
+    case 'log':
+      return styles.levelLog;
+    default:
+      return styles.levelDefault; // Default style if level is missing or unexpected
+  }
+};
+
 export default function ProjectErrorsPage() {
   const params = useParams();
   const navigate = useNavigate();
@@ -140,6 +157,9 @@ export default function ProjectErrorsPage() {
   // State for Sorting
   const [sortKey, setSortKey] = useState<'received_at' | 'message'>('received_at'); // Default sort by received_at
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Default newest first
+
+  // State for Level Filter
+  const [levelFilter, setLevelFilter] = useState<'all' | 'error' | 'warn' | 'info' | 'log'>('all');
 
   // Redirect if auth finished loading and there's no user
   useEffect(() => {
@@ -294,17 +314,27 @@ export default function ProjectErrorsPage() {
 
   // --- Filtered Errors --- 
   const filteredErrors = useMemo(() => {
-      if (!debouncedSearchTerm) {
-          return errors; // No filter applied
+      // Start with the full errors list
+      let tempErrors = errors;
+
+      // Apply level filter first (if not 'all')
+      if (levelFilter !== 'all') {
+          tempErrors = tempErrors.filter(error => error.level?.toLowerCase() === levelFilter);
       }
-      const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
-      return errors.filter(error => 
-          error.message.toLowerCase().includes(lowerCaseSearchTerm)
-          // Optionally filter by stack trace or metadata as well:
-          // || (error.stack_trace && error.stack_trace.toLowerCase().includes(lowerCaseSearchTerm))
-          // || (error.metadata && JSON.stringify(error.metadata).toLowerCase().includes(lowerCaseSearchTerm))
-      );
-  }, [errors, debouncedSearchTerm]);
+
+      // Apply search term filter
+      if (debouncedSearchTerm) {
+          const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
+          tempErrors = tempErrors.filter(error => 
+              error.message.toLowerCase().includes(lowerCaseSearchTerm)
+              // Optionally filter by stack trace or metadata as well:
+              // || (error.stack_trace && error.stack_trace.toLowerCase().includes(lowerCaseSearchTerm))
+              // || (error.metadata && JSON.stringify(error.metadata).toLowerCase().includes(lowerCaseSearchTerm))
+          );
+      }
+
+      return tempErrors; // Return the doubly filtered list
+  }, [errors, debouncedSearchTerm, levelFilter]); // Add levelFilter to dependencies
   // --- End Filtered Errors ---
 
   // --- Sorted Errors ---
@@ -408,8 +438,9 @@ export default function ProjectErrorsPage() {
       >
          <h1 className={styles.pageTitle}>Errors for: {project ? project.name : 'Loading project...'}</h1>
 
-        {/* Add Filter Section */} 
+        {/* Filter Section */}
         <div className={styles.filterControls}>
+          {/* Search Input */}
            <div className={styles.searchContainer}>
              <MagnifyingGlassIcon className={styles.searchIcon} />
              <input
@@ -420,7 +451,39 @@ export default function ProjectErrorsPage() {
                className={styles.searchInput}
              />
            </div>
-           {/* Add Sort controls here later if needed */}
+           {/* Level Filter Buttons */}
+           <div className={styles.levelFilterContainer}>
+                <button 
+                  onClick={() => setLevelFilter('all')} 
+                  className={`${styles.levelFilterButton} ${levelFilter === 'all' ? styles.activeFilter : ''}`}
+                >
+                  All
+                </button>
+                <button 
+                  onClick={() => setLevelFilter('error')} 
+                  className={`${styles.levelFilterButton} ${styles.levelErrorFilter} ${levelFilter === 'error' ? styles.activeFilter : ''}`}
+                >
+                  Errors
+                </button>
+                <button 
+                  onClick={() => setLevelFilter('warn')} 
+                  className={`${styles.levelFilterButton} ${styles.levelWarnFilter} ${levelFilter === 'warn' ? styles.activeFilter : ''}`}
+                >
+                  Warnings
+                </button>
+                <button 
+                  onClick={() => setLevelFilter('info')} 
+                  className={`${styles.levelFilterButton} ${styles.levelInfoFilter} ${levelFilter === 'info' ? styles.activeFilter : ''}`}
+                >
+                  Info
+                </button>
+                <button 
+                  onClick={() => setLevelFilter('log')} 
+                  className={`${styles.levelFilterButton} ${styles.levelLogFilter} ${levelFilter === 'log' ? styles.activeFilter : ''}`}
+                >
+                  Logs
+                </button>
+           </div>
          </div>
 
         {loading && (
@@ -470,7 +533,11 @@ export default function ProjectErrorsPage() {
                   <tbody>
                     {/* Map over FILTERED errors */} 
                     {sortedAndFilteredErrors.map((error) => (
-                      <tr key={error.id} onClick={() => handleRowClick(error)} className={styles.errorRow}>
+                      <tr 
+                        key={error.id} 
+                        onClick={() => handleRowClick(error)} 
+                        className={`${styles.errorRow} ${getLevelClassName(error.level)}`}
+                      >
                         <td className={styles.messageCell}>{error.message}</td>
                         <td className={styles.stackTraceCell}>
                           <pre>{truncateString(error.stack_trace, 100)}</pre>

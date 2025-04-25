@@ -46,6 +46,7 @@ const errorSchema = z.object({
   message: z.string().min(1, { message: "Message cannot be empty" }),
   stackTrace: z.string().optional(), // Optional string
   metadata: z.record(z.unknown()).optional(), // Optional object with unknown values
+  level: z.string().optional().default('error'), // Add level validation (optional, default to 'error')
 });
 
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
@@ -201,7 +202,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { apiKey, message, stackTrace, metadata } = validationResult.data;
+    const { apiKey, message, stackTrace, metadata, level } = validationResult.data;
 
     // 2. Validate the API Key
     const { data: projectData, error: projectError } = await supabaseServiceClient
@@ -230,6 +231,7 @@ export async function POST(request: Request) {
           message: message,
           stack_trace: stackTrace,
           metadata: metadata,
+          level: level,
         },
       ])
       .select();

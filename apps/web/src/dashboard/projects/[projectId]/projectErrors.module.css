@@ -81,16 +81,22 @@
 
 /* --- Filter Controls --- */
 .filterControls {
-  margin-bottom: 1.5rem;
   display: flex;
-  justify-content: space-between; /* Allows adding sort controls later */
+  justify-content: space-between; /* Align search and filters */
   align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  gap: 1rem; /* Add gap between items when wrapped */
 }
 
 .searchContainer {
-  position: relative;
   display: flex;
   align-items: center;
+  background-color: var(--input-bg, #2c2c2e);
+  border-radius: var(--border-radius, 6px);
+  padding: 0.5rem 0.75rem;
+  flex-grow: 1; /* Allow search to grow */
+  max-width: 400px; /* Optional: constrain max width */
 }
 
 .searchIcon {
@@ -122,6 +128,58 @@
 .searchInput::placeholder {
   color: #6b7280; /* Gray-500 */
 }
+
+.levelFilterContainer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* Space between filter buttons */
+  flex-wrap: wrap; /* Allow buttons to wrap */
+}
+
+.levelFilterButton {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border-color, #4a4a4e);
+  border-radius: var(--border-radius, 6px);
+  background-color: transparent;
+  color: var(--text-secondary, #a0a0a0);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.levelFilterButton:hover {
+  background-color: var(--button-hover-bg, #3a3a3c);
+  border-color: var(--button-hover-border, #5a5a5e);
+  color: var(--text-primary, #ffffff);
+}
+
+/* Active filter button style */
+.levelFilterButton.activeFilter {
+  background-color: var(--button-active-bg, #007aff); /* Example active blue */
+  border-color: var(--button-active-border, #007aff);
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* Optional: Add specific colors matching row borders to buttons (subtle background or border) */
+.levelErrorFilter.activeFilter {
+  background-color: #e53e3e; 
+  border-color: #e53e3e;
+}
+.levelWarnFilter.activeFilter {
+  background-color: #dd6b20;
+  border-color: #dd6b20;
+}
+.levelInfoFilter.activeFilter {
+  background-color: #3182ce;
+  border-color: #3182ce;
+}
+.levelLogFilter.activeFilter {
+  background-color: #805ad5;
+  border-color: #805ad5;
+}
+/* Style for 'All' when active (can keep default active or customize) */
+/* .levelFilterButton.activeFilter:not([class*="level"]) { ... } */
 /* --- End Filter Controls --- */
 
 /* Loading and Error States */
@@ -210,19 +268,21 @@
 
 .errorRow {
   cursor: pointer;
-  transition: background-color 0.15s ease-in-out;
+  transition: background-color 0.2s ease;
+  position: relative;
+  border-left: 4px solid transparent;
 }
 
 .errorRow:hover {
-  background-color: #2c2c2e; /* Dark highlight */
+  background-color: var(--row-hover-bg, #f0f4f8);
 }
 
 /* Column-specific styles/widths */
 .messageCell {
   color: #e5e7eb; /* Gray-200 */
   font-weight: 500;
-  word-break: break-word; /* Break long messages */
-  width: 30%; /* Adjust column widths as needed */
+  word-break: break-word;
+  width: 30%;
 }
 
 .stackTraceCell pre,
@@ -230,9 +290,9 @@
   margin: 0;
   font-family: monospace;
   color: #9ca3af; /* Gray-400 */
-  white-space: pre-wrap; /* Wrap long lines */
+  white-space: pre-wrap;
   word-break: break-all;
-  font-size: 0.8rem; /* Slightly smaller for previews */
+  font-size: 0.8rem;
 }
 
 .stackTraceCell {
@@ -245,7 +305,7 @@
 
 .dateCell {
   color: #9ca3af; /* Gray-400 */
-  white-space: nowrap; /* Prevent date from wrapping */
+  white-space: nowrap;
   width: 15%;
 }
 
@@ -262,7 +322,7 @@
 }
 
 .paginationButton {
-  display: inline-flex; /* Use inline-flex for icon alignment */
+  display: inline-flex;
   align-items: center;
   padding: 0.5rem 1rem;
   border: 1px solid #2c2c2e;
@@ -286,11 +346,10 @@
 .paginationButton svg {
   height: 16px;
   width: 16px;
-  margin-right: 0.25rem; /* Space between icon and text */
-  margin-left: -0.25rem; /* Adjust spacing if needed */
+  margin-right: 0.25rem;
+  margin-left: -0.25rem;
 }
 
-/* Specific adjustments for Next button icon */
 .paginationButton:last-child svg {
   margin-left: 0.25rem;
   margin-right: -0.25rem;
@@ -303,7 +362,7 @@
 
 /* Base styling for both sortable and non-sortable headers */
 .tableHeader {
-  padding: 0 16px; /* Horizontal padding only */
+  padding: 0 16px;
   display: flex;
   align-items: center;
   height: 100%;
@@ -320,7 +379,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0 16px; /* Match tableHeader padding */
+  padding: 0 16px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -344,22 +403,71 @@
   height: 14px;
   margin-left: 6px;
   color: #9ca3af; /* Gray-400 */
-  flex-shrink: 0; /* Prevent icon shrinking */
+  flex-shrink: 0;
 }
 
 /* Ensure equal cell widths */
 .errorsTable th:nth-child(1) {
-  width: 30%; /* Message column */
+  width: 30%;
 }
 
 .errorsTable th:nth-child(2) {
-  width: 30%; /* Stack trace column */
+  width: 30%;
 }
 
 .errorsTable th:nth-child(3) {
-  width: 25%; /* Metadata column */
+  width: 25%;
 }
 
 .errorsTable th:nth-child(4) {
-  width: 15%; /* Date column */
-} 
+  width: 15%;
+}
+
+/* --- Level Specific Styles --- */
+
+/* Default/Unknown Level */
+.levelDefault {
+  border-left-color: #cccccc;
+}
+.levelDefault:hover {
+  background-color: #f8f9fa;
+}
+
+/* Error Level */
+.levelError {
+  border-left-color: #e53e3e;
+}
+.levelError:hover {
+  background-color: #fed7d7;
+}
+
+/* Warn Level */
+.levelWarn {
+  border-left-color: #dd6b20;
+}
+.levelWarn:hover {
+  background-color: #feebc8;
+}
+
+/* Info Level */
+.levelInfo {
+  border-left-color: #3182ce;
+}
+.levelInfo:hover {
+  background-color: #bee3f8;
+}
+
+/* Log Level (or Debug) */
+.levelLog {
+  border-left-color: #805ad5;
+}
+.levelLog:hover {
+  background-color: #e9d8fd;
+}
+
+/* Add any other specific cell styling adjustments if needed due to borders/padding */
+.messageCell {
+  /* Existing styles */
+}
+
+/* ... other styles ... */ 
