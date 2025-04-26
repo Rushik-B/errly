@@ -49,6 +49,16 @@ const errorSchema = z.object({
   level: z.string().optional().default('error'), // Add level validation (optional, default to 'error')
 });
 
+// Define the type for the RPC response rows
+interface AggregatedErrorGroup {
+  message: string;
+  level: string;
+  count: number; // Assuming count fits within standard number type
+  last_seen: string; // ISO timestamp string
+  representative_id: string; // UUID string
+  total_groups: number; // Assuming total_groups fits within standard number type
+}
+
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
 export async function GET(request: NextRequest) {
   // Use JWT validation
@@ -172,7 +182,7 @@ export async function GET(request: NextRequest) {
   try {
     // Call the RPC function
     const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
-      .rpc('get_aggregated_errors', rpcParams);
+      .rpc<AggregatedErrorGroup[]>('get_aggregated_errors', rpcParams);
 
     if (rpcError) {
       console.error('Error calling get_aggregated_errors RPC:', rpcError.message);
@@ -185,7 +195,7 @@ export async function GET(request: NextRequest) {
 
     // Map the RPC response to the expected API response structure
     // We need to align field names (e.g., last_seen -> received_at, representative_id -> id)
-    const mappedData = (aggregatedErrors ?? []).map(group => ({
+    const mappedData = (aggregatedErrors ?? []).map((group: AggregatedErrorGroup) => ({
         id: group.representative_id, // Use the ID of the latest error in the group
         message: group.message,
         level: group.level,
