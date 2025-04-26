@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -9,6 +9,7 @@ import vscDarkPlus from 'react-syntax-highlighter/dist/esm/styles/prism/vsc-dark
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 import styles from './ErrorDetailModal.module.css';
+import { useAuth } from '../context/AuthContext.tsx';
 
 // Re-use the ApiError type or define it here if not easily importable
 // Assume state and request might be added later
@@ -18,8 +19,11 @@ interface ApiError {
   received_at: string;
   stack_trace: string | null;
   metadata: any | null;
-  state?: 'resolved' | 'active'; // Optional state for future use
-  request?: { // Optional request details for future use
+  level?: string;
+  count?: number;
+  trend?: { time: string; count: number }[];
+  state?: 'resolved' | 'active';
+  request?: {
     url?: string;
     method?: string;
     headers?: Record<string, string>;
@@ -44,11 +48,46 @@ const copyToClipboard = (text: string | null | undefined, successMessage: string
   }
   navigator.clipboard.writeText(text)
     .then(() => toast.success(successMessage))
-    .catch(err => {
+    .catch((err: any) => {
         console.error('Failed to copy: ', err);
         toast.error('Failed to copy!');
     });
 };
+
+// --- START Fetch Helper --- Add fetchWithErrorHandling or similar
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+
+async function fetchWithErrorHandling(url: string, options?: RequestInit, token?: string | null): Promise<any> {
+  const headers = new Headers(options?.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const fetchOptions = { ...options, headers: headers };
+
+  let response;
+  try {
+    response = await fetch(url, fetchOptions);
+  } catch (networkError: any) { 
+    console.error('Network error:', networkError);
+    throw new Error(`Network error: ${networkError.message}`); 
+  }
+
+  if (!response.ok) {
+    let errorPayload: any = { error: `Request failed: ${response.status} ${response.statusText}` };
+    try { errorPayload = await response.json(); } catch (e) { }
+    console.error('API Error:', errorPayload);
+    const errorMessage = errorPayload.error || errorPayload.message || `API Error ${response.status}`;
+    throw new Error(errorMessage);
+  }
+
+  try { 
+    return await response.json(); 
+  } catch (e: any) { 
+    console.error('JSON parse error:', e);
+    throw new Error(`Failed to parse response: ${e.message}`); 
+  }
+}
+// --- END Fetch Helper ---
 
 const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({ 
     isOpen, 
@@ -57,13 +96,72 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({
     onResolve, // Receive optimistic update handler
     onMute,    // Receive optimistic update handler
 }) => {
+  const { session } = useAuth(); // Get session for auth token
+  const [isLoading, setIsLoading] = useState(false);
+  const [detailedError, setDetailedError] = useState<ApiError | null>(error); // Initialize with passed error
 
-  if (!error) {
+  // Fetch full error details when modal opens or error ID changes
+  useEffect(() => {
+    if (isOpen && error?.id) {
+      const fetchDetails = async () => {
+        // Only fetch if stack trace/metadata seems missing (heuristic)
+        if (detailedError?.stack_trace === null || detailedError?.metadata === null) {
+            setIsLoading(true);
+            console.log(`[Modal] Fetching details for error ID: ${error.id}`);
+            try {
+              const fullErrorData: ApiError = await fetchWithErrorHandling(
+                `${API_BASE_URL}/api/errors/${error.id}`,
+                { method: 'GET' },
+                session?.access_token
+              );
+              console.log('[Modal] Fetched details:', fullErrorData);
+              // Merge with existing data in case aggregated data had fields not in full fetch (like count/trend)
+              setDetailedError(prev => ({ 
+                ...(prev ?? {}), 
+                ...fullErrorData 
+              })); 
+            } catch (err) {
+              console.error('[Modal] Failed to fetch error details:', err);
+              toast.error('Could not load full error details.');
+              // Keep existing partial data if fetch fails
+              setDetailedError(error); 
+            } finally {
+              setIsLoading(false);
+            }
+        } else {
+             // Already have details or initial error had them, ensure state is up-to-date
+             setDetailedError(error);
+             setIsLoading(false); 
+        }
+      };
+      fetchDetails();
+    } else if (!isOpen) {
+        // Reset state when modal closes
+        setIsLoading(false);
+        setDetailedError(null);
+    }
+  }, [isOpen, error?.id, session]); // Rerun if modal opens or error ID changes
+
+  // Update detailedError if the error prop itself changes while modal is open
+  // This handles cases where the underlying data in the parent might update
+  useEffect(() => {
+      if (isOpen && error) {
+          // If not loading details, update state directly from prop
+          if (!isLoading) {
+              setDetailedError(prev => ({ ...(prev ?? {}), ...error }));
+          }
+      }
+  }, [error]); // Watch the error prop directly
+
+  // Use detailedError for display, fallback to original error if needed
+  const displayError = detailedError ?? error;
+
+  if (!displayError) {
     return null;
   }
 
   // --- Data Formatting ---
-  const formattedDate = new Date(error.received_at).toLocaleString(undefined, {
+  const formattedDate = new Date(displayError.received_at).toLocaleString(undefined, {
       year: 'numeric', month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
   });
@@ -85,8 +183,8 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({
      }
   }
 
-  const formattedMetadata = formatJsonOrObject(error.metadata);
-  const formattedRequest = formatJsonOrObject(error.metadata?.request); // Assuming request is nested
+  const formattedMetadata = formatJsonOrObject(displayError.metadata);
+  const formattedRequest = formatJsonOrObject(displayError.metadata?.request); // Assuming request is nested
 
   // --- Effects ---
   // Prevent background scroll
@@ -123,13 +221,13 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({
 
   // --- Event Handlers ---
   const handleResolve = async () => {
-      console.log('Resolving error:', error.id);
+      console.log('Resolving error:', displayError.id);
       // Placeholder for API call: PATCH /api/errors/{error.id}
       try {
           // const response = await fetch(`/api/errors/${error.id}`, { method: 'PATCH', body: JSON.stringify({ state: 'resolved' }), headers: { 'Content-Type': 'application/json' } });
           // if (!response.ok) throw new Error('Failed to resolve');
           // Call optimistic update handler passed from parent
-          onResolve?.(error.id);
+          onResolve?.(displayError.id);
           toast.success('Error marked as resolved (simulated)');
           onClose(); // Close modal on success
       } catch (err) {
@@ -139,14 +237,14 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({
   };
 
   const handleMute = async () => {
-      console.log('Muting error:', error.id);
+      console.log('Muting error:', displayError.id);
       // Placeholder for API call: PATCH /api/errors/{error.id}
       const muteUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       try {
           // const response = await fetch(`/api/errors/${error.id}`, { method: 'PATCH', body: JSON.stringify({ mute_until: muteUntil }), headers: { 'Content-Type': 'application/json' } });
           // if (!response.ok) throw new Error('Failed to mute');
           // Call optimistic update handler passed from parent
-          onMute?.(error.id, muteUntil);
+          onMute?.(displayError.id, muteUntil);
           toast.success('Error muted for 24h (simulated)');
           onClose(); // Close modal on success
       } catch (err) {
@@ -230,20 +328,32 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({
               <div className={styles.modalBody}> {/* Tab content container */}
                   <Tabs.Content className={styles.tabsContent} value="tabStack">
                       <h3 className={styles.sectionTitle}>Message</h3>
-                      <p className={styles.messageContent}>{error.message}</p>
+                      <p className={styles.messageContent}>{displayError.message}</p>
                       <h3 className={styles.sectionTitle + " mt-4"}>Stack Trace</h3>
-                      <CodeBlockWithCopy content={error.stack_trace} language="javascript" title="Stack Trace" />
+                      {isLoading ? (
+                          <p className="text-gray-400 italic">Loading stack trace...</p>
+                      ) : (
+                          <CodeBlockWithCopy content={displayError.stack_trace} language="javascript" title="Stack Trace" />
+                      )}
                   </Tabs.Content>
 
                   <Tabs.Content className={styles.tabsContent} value="tabRequest">
                       <h3 className={styles.sectionTitle}>Request Details</h3>
-                      <CodeBlockWithCopy content={formattedRequest} language="json" title="Request Data" />
+                      {isLoading ? (
+                           <p className="text-gray-400 italic">Loading request details...</p>
+                      ) : (
+                          <CodeBlockWithCopy content={formattedRequest} language="json" title="Request Data" />
+                      )}
                       {/* Add more specific request rendering if data structure is known */}
                   </Tabs.Content>
 
                   <Tabs.Content className={styles.tabsContent} value="tabMetadata">
                       <h3 className={styles.sectionTitle}>Metadata</h3>
-                      <CodeBlockWithCopy content={formattedMetadata} language="json" title="Metadata" />
+                      {isLoading ? (
+                           <p className="text-gray-400 italic">Loading metadata...</p>
+                      ) : (
+                          <CodeBlockWithCopy content={formattedMetadata} language="json" title="Metadata" />
+                      )}
                   </Tabs.Content>
               </div>
             </Tabs.Root>
