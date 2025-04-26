@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
   try {
     // Call the RPC function
     const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
-      .rpc<AggregatedErrorGroup[]>('get_aggregated_errors', rpcParams);
+      .rpc('get_aggregated_errors', rpcParams);
 
     if (rpcError) {
       console.error('Error calling get_aggregated_errors RPC:', rpcError.message);
