@@ -130,48 +130,89 @@ export async function GET(request: NextRequest) {
   }
   // --- End Validate Project Ownership ---
 
-  // --- Fetch Errors with Pagination ---
-  const page = pageParam ? parseInt(pageParam, 10) : 1
-  const limit = limitParam ? parseInt(limitParam, 10) : 20 // Default limit
-  const offset = (page - 1) * limit
+  // --- Fetch Aggregated Errors using RPC ---
+  const page = pageParam ? parseInt(pageParam, 10) : 1;
+  const limit = limitParam ? parseInt(limitParam, 10) : 20; // Default limit
 
   if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
-    // Add back explicit dashboard headers
     return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
-  try {
-    const { data: errors, error: errorsError, count } = await supabaseAdmin
-      .from('errors')
-      .select('*', { count: 'exact' }) // Fetch all error fields and the total count
-      .eq('project_id', projectId)
-      .order('received_at', { ascending: false }) // Order by most recent
-      .range(offset, offset + limit - 1) // Apply pagination range
+  // Extract date range parameters
+  const startDateParam = searchParams.get('startDate');
+  const endDateParam = searchParams.get('endDate');
 
-    if (errorsError) {
-      console.error('Error fetching errors:', errorsError.message);
-      // Add back explicit dashboard headers
-      return NextResponse.json({ error: 'Failed to fetch errors', details: errorsError.message }, { status: 500, headers: dashboardCorsHeaders });
+  // Prepare RPC parameters
+  const rpcParams: { 
+    project_id_param: string;
+    start_date_param?: string;
+    end_date_param?: string;
+    page_param: number;
+    limit_param: number;
+  } = {
+    project_id_param: projectId,
+    page_param: page,
+    limit_param: limit,
+  };
+
+  // Add date parameters if they are valid dates
+  if (startDateParam) {
+    const startDate = new Date(startDateParam);
+    if (!isNaN(startDate.getTime())) {
+      rpcParams.start_date_param = startDate.toISOString();
+    }
+  }
+  if (endDateParam) {
+    const endDate = new Date(endDateParam);
+    if (!isNaN(endDate.getTime())) {
+      rpcParams.end_date_param = endDate.toISOString();
+    }
+  }
+
+  try {
+    // Call the RPC function
+    const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
+      .rpc('get_aggregated_errors', rpcParams);
+
+    if (rpcError) {
+      console.error('Error calling get_aggregated_errors RPC:', rpcError.message);
+      return NextResponse.json({ error: 'Failed to fetch aggregated errors', details: rpcError.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
-    // Add back explicit dashboard headers for success
+    // Determine the total count of unique groups
+    // The function returns total_groups on each row, so pick it from the first row if available.
+    const totalUniqueGroups = aggregatedErrors && aggregatedErrors.length > 0 ? aggregatedErrors[0].total_groups : 0;
+
+    // Map the RPC response to the expected API response structure
+    // We need to align field names (e.g., last_seen -> received_at, representative_id -> id)
+    const mappedData = (aggregatedErrors ?? []).map(group => ({
+        id: group.representative_id, // Use the ID of the latest error in the group
+        message: group.message,
+        level: group.level,
+        received_at: group.last_seen, // Use the timestamp of the latest error
+        count: group.count, // The count of errors in this group
+        // stack_trace and metadata are not directly available from aggregation,
+        // Set them to null or fetch the latest error details if needed (more complex)
+        stack_trace: null, 
+        metadata: null,
+    }));
+
     return NextResponse.json({
-      data: errors ?? [],
-      totalCount: count ?? 0,
+      data: mappedData, // Return the mapped aggregated data
+      totalCount: totalUniqueGroups, // Return the total count of unique groups
       page,
       limit,
     }, { headers: dashboardCorsHeaders });
 
   } catch (err: unknown) {
-    let errorMessage = 'An unexpected error occurred while fetching errors';
+    let errorMessage = 'An unexpected error occurred while fetching aggregated errors';
      if (err instanceof Error) {
         errorMessage = err.message;
     }
-    console.error('Unexpected error fetching errors:', errorMessage);
-    // Add back explicit dashboard headers
+    console.error('Unexpected error fetching aggregated errors:', errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
-  // --- End Fetch Errors with Pagination ---
+  // --- End Fetch Aggregated Errors ---
 }
 
 // POST /api/errors - Record a new error (using API Key authentication)

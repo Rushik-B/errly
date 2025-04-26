@@ -254,7 +254,7 @@ export default function ProjectErrorsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const [sortKey, setSortKey] = useState<'received_at' | 'message'>('received_at');
+  const [sortKey, setSortKey] = useState<'received_at' | 'message' | 'count'>('received_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
@@ -401,14 +401,20 @@ export default function ProjectErrorsPage() {
   const sortedAndFilteredErrors = useMemo(() => {
       let items = [...filteredErrors]; 
       items.sort((a, b) => {
-          let valA, valB;
+          let valA: number | string, valB: number | string;
           if (sortKey === 'received_at') {
               valA = new Date(a.received_at).getTime();
               valB = new Date(b.received_at).getTime();
           } else if (sortKey === 'message') {
               valA = a.message.toLowerCase();
               valB = b.message.toLowerCase();
+          } else if (sortKey === 'count') {
+              // Handle potential undefined counts, treating them as 0 for sorting
+              valA = a.count ?? 0;
+              valB = b.count ?? 0;
           } else { return 0; }
+
+          // Comparison logic (handles both numbers and strings)
           if (valA < valB) { return sortDirection === 'asc' ? -1 : 1; }
           if (valA > valB) { return sortDirection === 'asc' ? 1 : -1; }
           return 0;
@@ -437,16 +443,17 @@ export default function ProjectErrorsPage() {
     setSelectedError(null);
   };
 
-  const handleSort = (key: 'received_at' | 'message') => {
+  const handleSort = (key: 'received_at' | 'message' | 'count') => {
       if (key === sortKey) {
           setSortDirection(prevDirection => (prevDirection === 'asc' ? 'desc' : 'asc'));
       } else {
           setSortKey(key);
-          setSortDirection(key === 'received_at' ? 'desc' : 'asc'); 
+          // Default sort direction: desc for received_at and count, asc for message
+          setSortDirection(key === 'message' ? 'asc' : 'desc'); 
       }
   };
 
-  const renderSortIcon = (key: 'received_at' | 'message') => {
+  const renderSortIcon = (key: 'received_at' | 'message' | 'count') => {
       if (sortKey !== key) return null;
       const Icon = sortDirection === 'asc' ? ArrowUpIcon : ArrowDownIcon;
       return <Icon className="ml-1 h-4 w-4 text-gray-500" />; // Adjusted class
@@ -618,7 +625,7 @@ export default function ProjectErrorsPage() {
                       </th>
                       {/* Message */}
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
-                        <Button variant="ghost" size="sm" onClick={() => handleSort('message')} className="-ml-2 h-8 text-gray-400 hover:text-gray-200">
+                        <Button variant="ghost" size="sm" onClick={() => handleSort('message')} className="-ml-2 h-8 text-gray-400 hover:text-gray-200 p-1">
                           Message {renderSortIcon('message')}
                         </Button>
                       </th>
@@ -626,9 +633,11 @@ export default function ProjectErrorsPage() {
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
                         Trend (24h)
                       </th>
-                      {/* Hits 24h */}
+                      {/* Hits */}
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
-                        Hits (24h)
+                        <Button variant="ghost" size="sm" onClick={() => handleSort('count')} className="-ml-2 h-8 text-gray-400 hover:text-gray-200 p-1">
+                          Hits {renderSortIcon('count')}
+                        </Button>
                       </th>
                       {/* Stack Preview */}
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
@@ -681,9 +690,9 @@ export default function ProjectErrorsPage() {
                                 {/* <Sparkline data={mockSparklineData} height={24} width={90} /> */}
                                 <div>Sparkline Commented Out</div>
                             </td>
-                            {/* Hits 24h (90px, placeholder) */}
-                            <td className="px-3 py-3 text-center align-top text-gray-400">
-                              - {/* Placeholder */}
+                            {/* Hits (Display aggregated count) */}
+                            <td className="px-3 py-3 text-center align-top font-medium text-gray-200">
+                              {error.count ?? '-'}
                             </td>
                             {/* Stack Preview (flex=2, last frame, tooltip) */}
                             <td className="px-3 py-3 align-top font-mono text-gray-400">

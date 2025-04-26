@@ -8,6 +8,7 @@ export interface ApiError {
   stack_trace: string | null;
   metadata: any | null;
   level: string;
+  count?: number; // Added: Count for aggregated errors
   state?: 'resolved' | 'active'; // Added: error state
   mute_until?: string | null; // Added: ISO string or null
   // Add other fields like request if needed
