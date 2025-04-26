@@ -7,7 +7,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { getSupabaseClient } from '../../../lib/supabaseClient.ts';
-import LogoutButton from '../../../ErrorModal/LogoutButton.tsx';
 import { useAuth } from '../../../context/AuthContext.tsx';
 import {
   ArrowLeftIcon,
@@ -26,6 +25,7 @@ import { motion } from 'framer-motion';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { formatDistanceToNow } from 'date-fns';
 import ErrorDetailModal from '../../../ErrorModal/ErrorDetailModal.tsx';
+import { LogOut } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -122,7 +122,7 @@ const getLevelDetails = (level?: string): { icon: React.ElementType, colorClass:
     case 'error':
       return { icon: ExclamationTriangleIcon, colorClass: 'border-l-red-500 hover:bg-red-100 dark:hover:bg-red-900/50', filterColorClass: 'border-red-500 bg-red-500 hover:bg-red-600 text-white', filterHoverClass: 'hover:bg-red-600' };
     case 'warn':
-      return { icon: ExclamationCircleIcon, colorClass: 'border-l-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/50', filterColorClass: 'border-yellow-500 bg-yellow-500 hover:bg-yellow-600 text-white', filterHoverClass: 'hover:bg-yellow-600' };
+      return { icon: ExclamationCircleIcon, colorClass: 'border-l-yellow-500 hover:bg-gray-100 dark:hover:bg-gray-700/50', filterColorClass: 'border-yellow-500 bg-yellow-500 hover:bg-yellow-600 text-white', filterHoverClass: 'hover:bg-yellow-600' };
     case 'info':
       return { icon: InformationCircleIcon, colorClass: 'border-l-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50', filterColorClass: 'border-blue-500 bg-blue-500 hover:bg-blue-600 text-white', filterHoverClass: 'hover:bg-blue-600' };
     case 'log':
@@ -151,7 +151,7 @@ export default function ProjectErrorsPage() {
   const params = useParams();
   const navigate = useNavigate();
   const supabase = getSupabaseClient();
-  const { user: authUser, session, loading: loadingAuth } = useAuth();
+  const { user: authUser, session, loading: loadingAuth, signOut } = useAuth();
   const location = useLocation();
 
   const projectId = params.projectId as string;
@@ -331,12 +331,22 @@ export default function ProjectErrorsPage() {
        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-white/10 bg-black/70 backdrop-blur-md px-4 sm:px-6">
          <Link to="/dashboard" className="flex items-center gap-2 font-semibold text-blue-400 hover:text-blue-300">
             <ArrowLeftIcon className="h-5 w-5" /> 
-            <img src="/lovable-uploads/carbon.svg" alt="Errly Logo" className="h-6 w-6" /> 
+            <img 
+                src="/lovable-uploads/carbon.svg" 
+                alt="Errly Logo" 
+                className="h-6 w-6 rounded-full object-cover"
+            /> 
             <span className="sr-only">Errly</span> 
          </Link>
          <div className="ml-auto flex items-center gap-4">
            {authUser && <span className="hidden text-sm text-gray-400 md:inline-block">{authUser.email}</span>}
-           <LogoutButton /> 
+           <button
+             onClick={signOut} 
+             title="Logout"
+             className="flex h-8 w-8 items-center justify-center rounded-full p-2 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-200"
+           >
+             <LogOut className="h-4 w-4" />
+           </button>
          </div>
        </header>
 
