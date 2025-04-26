@@ -128,4 +128,115 @@
 
 .footerCloseButton:hover {
     background-color: #3c3c3e; /* Slightly lighter on hover */
+}
+
+/* --- Tabs --- */
+
+.tabsRoot {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex-grow: 1; /* Allow tabs root to fill space */
+  overflow: hidden; /* Contain tab content */
+}
+
+.tabsList {
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 1px solid #2c2c2e;
+  background-color: #121212; /* Match footer */
+}
+
+.tabsTrigger {
+  font-family: inherit;
+  background-color: transparent;
+  padding: 0 20px;
+  height: 45px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem; /* text-sm */
+  line-height: 1;
+  color: #9ca3af; /* Gray-400 */
+  user-select: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s, box-shadow 0.2s;
+  border-bottom: 2px solid transparent; /* Placeholder for active state */
+}
+
+.tabsTrigger:hover {
+  color: #e5e7eb; /* Gray-200 */
+}
+
+.tabsTrigger[data-state='active'] {
+  color: #3b82f6; /* Blue-500 for active tab */
+  border-bottom-color: #3b82f6; /* Blue-500 */
+}
+
+.tabsContent {
+  flex-grow: 1;
+  /* padding: 20px; */ /* Padding is now in modalBody */
+  background-color: #1c1c1e; /* Match modal bg */
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  outline: none;
+  overflow-y: auto; /* Allow content itself to scroll if needed */
+}
+
+/* --- Copy Button --- */
+.copyButton {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: rgba(44, 44, 46, 0.7); /* #2c2c2e with opacity */
+  border: 1px solid #3c3c3e;
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  color: #9ca3af; /* Gray-400 */
+  opacity: 0.6;
+  transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.copyButton:hover {
+  opacity: 1;
+  background-color: #3c3c3e;
+  color: #f9fafb; /* Gray-50 */
+}
+
+.copyIcon {
+  width: 16px;
+  height: 16px;
+}
+
+/* --- Footer Action Buttons --- */
+.footerActionButton {
+  /* Shared styles for Resolve/Mute */
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s;
+}
+
+.muteButton {
+  background-color: #4b5563; /* Gray-600 */
+  color: #e5e7eb; /* Gray-200 */
+}
+
+.muteButton:hover {
+  background-color: #525f73;
+}
+
+.resolveButton {
+  background-color: #16a34a; /* Green-600 */
+  color: #ffffff;
+}
+
+.resolveButton:hover {
+  background-color: #17b450;
 } 

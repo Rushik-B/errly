@@ -20,12 +20,23 @@ import {
   InformationCircleIcon,
   ChatBubbleBottomCenterTextIcon,
   Bars3Icon,
+  EyeIcon,
+  CheckCircleIcon,
+  BellSlashIcon,
+  CalendarDaysIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, subHours, subDays } from 'date-fns';
 import ErrorDetailModal from '../../../ErrorModal/ErrorDetailModal.tsx';
 import { LogOut } from 'lucide-react';
+import { Menu, Transition } from '@headlessui/react';
+import { useDateRangeStore, DateRangePreset } from '../../../store/dateRangeStore';
+import { useErrorStore, ApiError } from '../../../store/errorStore.ts';
+import { default as DatePicker } from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import Sparkline from '../../../components/ui/Sparkline.tsx';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,15 +48,6 @@ import { Card, CardContent } from '@/components/ui/card';
 interface Project {
   id: string;
   name: string;
-}
-
-interface ApiError {
-  id: string;
-  message: string;
-  received_at: string;
-  stack_trace: string | null;
-  metadata: any | null;
-  level: string;
 }
 
 interface ErrorApiResponse {
@@ -94,11 +96,18 @@ function formatMetadata(metadata: any | null, maxLength: number): string {
     if (metadata === null || metadata === undefined) return 'N/A';
     let displayString;
     try {
-        displayString = JSON.stringify(metadata);
+        // Attempt to pretty-print if it's a JSON string
+        if (typeof metadata === 'string') {
+             try {
+                 displayString = JSON.stringify(JSON.parse(metadata), null, 2);
+             } catch { displayString = metadata; /* Not JSON, use as is */}
+        } else {
+             displayString = JSON.stringify(metadata, null, 2); // Pretty-print object
+        }
     } catch (e) {
         displayString = '[Unserializable Metadata]';
     }
-    return truncateString(displayString, maxLength);
+    return truncateString(displayString, maxLength); // Use the passed maxLength
 }
 
 // Debounce hook
@@ -116,25 +125,56 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 // Get level details function (already present, ensure it's not duplicated)
-const getLevelDetails = (level?: string): { icon: React.ElementType, colorClass: string, filterColorClass: string, filterHoverClass: string } => {
+// Modified to return border class separately
+const getLevelDetails = (level?: string): { 
+  icon: React.ElementType, 
+  borderClassName: string, // Added for specific border color 
+  filterColorClass: string, 
+  filterHoverClass: string 
+} => {
   const lowerLevel = level?.toLowerCase();
   switch (lowerLevel) {
     case 'error':
-      return { icon: ExclamationTriangleIcon, colorClass: 'border-l-red-500 hover:bg-red-100 dark:hover:bg-red-900/50', filterColorClass: 'border-red-500 bg-red-500 hover:bg-red-600 text-white', filterHoverClass: 'hover:bg-red-600' };
+      return { 
+        icon: ExclamationTriangleIcon, 
+        borderClassName: 'border-l-red-500', 
+        filterColorClass: 'border-red-500 bg-red-500 hover:bg-red-600 text-white', 
+        filterHoverClass: 'hover:bg-red-600' 
+      };
     case 'warn':
-      return { icon: ExclamationCircleIcon, colorClass: 'border-l-yellow-500 hover:bg-gray-100 dark:hover:bg-gray-700/50', filterColorClass: 'border-yellow-500 bg-yellow-500 hover:bg-yellow-600 text-white', filterHoverClass: 'hover:bg-yellow-600' };
+      return { 
+        icon: ExclamationCircleIcon, 
+        borderClassName: 'border-l-yellow-500', 
+        filterColorClass: 'border-yellow-500 bg-yellow-500 hover:bg-yellow-600 text-white', 
+        filterHoverClass: 'hover:bg-yellow-600' 
+      };
     case 'info':
-      return { icon: InformationCircleIcon, colorClass: 'border-l-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50', filterColorClass: 'border-blue-500 bg-blue-500 hover:bg-blue-600 text-white', filterHoverClass: 'hover:bg-blue-600' };
+      return { 
+        icon: InformationCircleIcon, 
+        borderClassName: 'border-l-blue-500', 
+        filterColorClass: 'border-blue-500 bg-blue-500 hover:bg-blue-600 text-white', 
+        filterHoverClass: 'hover:bg-blue-600' 
+      };
     case 'log':
-      return { icon: ChatBubbleBottomCenterTextIcon, colorClass: 'border-l-purple-500 hover:bg-purple-100 dark:hover:bg-purple-900/50', filterColorClass: 'border-purple-500 bg-purple-500 hover:bg-purple-600 text-white', filterHoverClass: 'hover:bg-purple-600' };
+      return { 
+        icon: ChatBubbleBottomCenterTextIcon, 
+        borderClassName: 'border-l-purple-500', 
+        filterColorClass: 'border-purple-500 bg-purple-500 hover:bg-purple-600 text-white', 
+        filterHoverClass: 'hover:bg-purple-600' 
+      };
     default: // Includes 'all' for filter and default for rows
-      return { icon: Bars3Icon, colorClass: 'border-l-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50', filterColorClass: 'border-primary bg-primary hover:bg-primary/90 text-primary-foreground', filterHoverClass: 'hover:bg-primary/90' }; // Use a generic icon like Bars3Icon for default/all
+      return { 
+        icon: Bars3Icon, 
+        borderClassName: 'border-l-gray-500', // Use gray for default/unknown 
+        filterColorClass: 'border-primary bg-primary hover:bg-primary/90 text-primary-foreground', 
+        filterHoverClass: 'hover:bg-primary/90' 
+      }; 
   }
 };
 
-// Get level row class name helper
-const getLevelRowClassName = (level?: string): string => {
-  return getLevelDetails(level).colorClass;
+// Get level row border class name helper
+const getLevelRowBorderClassName = (level?: string): string => {
+  return getLevelDetails(level).borderClassName;
 };
 
 // Get level icon helper
@@ -145,6 +185,46 @@ type LevelFilter = 'all' | 'error' | 'warn' | 'info' | 'log';
 
 // --- END Re-inserting missing code ---
 
+// --- START Mock Data --- 
+const MOCK_PROJECT: Project = {
+  id: 'mock-project-123',
+  name: 'Local Mock Project',
+};
+
+const MOCK_ERRORS: ApiError[] = [
+  {
+    id: 'err-1', message: 'TypeError: Cannot read property \'name\' of undefined', 
+    received_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(), // 5 mins ago
+    stack_trace: 'at getUser (userUtils.js:15)\nat processUser (main.js:42)\nat handleRequest (server.js:110)',
+    metadata: { userId: 'abc', path: '/users/profile' }, level: 'error'
+  },
+  {
+    id: 'err-2', message: 'Failed to fetch resource: Network error', 
+    received_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1 hour ago
+    stack_trace: null,
+    metadata: { url: '/api/data', attempt: 3 }, level: 'warn'
+  },
+  {
+    id: 'err-3', message: 'User logged in successfully', 
+    received_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(), // 2 hours ago
+    stack_trace: null,
+    metadata: { userId: 'xyz', source: 'loginPage' }, level: 'info'
+  },
+   {
+    id: 'err-4', message: 'Processing batch job #567', 
+    received_at: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3 hours ago
+    stack_trace: null,
+    metadata: { jobId: 567, items: 100 }, level: 'log'
+  },
+   {
+    id: 'err-5', message: 'Another undefined property access', 
+    received_at: new Date(Date.now() - 1000 * 60 * 240).toISOString(), // 4 hours ago
+    stack_trace: 'at getSettings (settings.js:22)\nat applyTheme (ui.js:95)',
+    metadata: { component: 'ThemeSwitcher' }, level: 'error'
+  },
+];
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+// --- END Mock Data ---
 
 export default function ProjectErrorsPage() {
   // --- State & Hooks ---
@@ -157,42 +237,61 @@ export default function ProjectErrorsPage() {
   const projectId = params.projectId as string;
 
   const [project, setProject] = useState<Project | null>(null);
-  const [errors, setErrors] = useState<ApiError[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [limit] = useState(20); // Keep limit state if used by API fetch
-  const [totalCount, setTotalCount] = useState(0);
+  const [limit] = useState(20);
+
+  const { errors, totalCount, setErrors, addError, resolveErrorOptimistic, muteErrorOptimistic } = useErrorStore();
 
   const [selectedError, setSelectedError] = useState<ApiError | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [tempStartDate, setTempStartDate] = useState<Date | null>(null);
+  const [tempEndDate, setTempEndDate] = useState<Date | null>(null);
+
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearchTerm = useDebounce(searchTerm, 300); // Now defined
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   const [sortKey, setSortKey] = useState<'received_at' | 'message'>('received_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
 
+  // Get date range state from Zustand store
+  const { preset, customStartDate, customEndDate, setPreset, setCustomRange } = useDateRangeStore();
+
   // --- Effects (Authentication, Data Fetch, Realtime) --- 
-  // Redirect if auth finished loading and there's no user
+  // Redirect if auth finished loading and there's no user (Bypass if mocking)
   useEffect(() => {
+    if (USE_MOCK_DATA) return; // Don't redirect if using mock data
+    
     if (!loadingAuth && !authUser) {
       console.log('ProjectErrorsPage: Auth loaded, no user found. Redirecting to login.');
       const redirectPath = location.pathname + location.search;
       navigate(`/login?redirect=${encodeURIComponent(redirectPath)}`, { replace: true });
     }
-  }, [loadingAuth, authUser, navigate, location.pathname, location.search]);
+  }, [loadingAuth, authUser, navigate, location.pathname, location.search]); // Removed USE_MOCK_DATA from deps
 
-  // Fetch project details and errors
+  // Fetch project details and errors (or use mock data)
   useEffect(() => {
+    if (USE_MOCK_DATA) {
+        console.log('[Mock Data] Using mock data for project and errors.');
+        setProject(MOCK_PROJECT);
+        setErrors(MOCK_ERRORS, MOCK_ERRORS.length);
+        setLoading(false);
+        setFetchError(null);
+        setCurrentPage(1); // Reset page for mock data
+        return; // Skip real fetch
+    }
+      
+    // Original fetch logic (only runs if USE_MOCK_DATA is false)
     if (loadingAuth || !session || !projectId) {
       setLoading(loadingAuth);
       if (!loadingAuth && !session) {
           setProject(null);
-          setErrors([]);
-          setTotalCount(0);
+          setErrors([], 0);
           setFetchError('No active session found.');
           setLoading(false);
       }
@@ -200,6 +299,28 @@ export default function ProjectErrorsPage() {
     }
 
     const fetchData = async () => {
+      // Calculate start and end dates based on the preset
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+
+      const now = new Date();
+      switch (preset) {
+        case '1h':
+          startDate = subHours(now, 1).toISOString();
+          break;
+        case '7d':
+          startDate = subDays(now, 7).toISOString();
+          break;
+        case 'custom':
+          startDate = customStartDate?.toISOString();
+          endDate = customEndDate?.toISOString();
+          break;
+        case '24h': // Default included here
+        default:
+          startDate = subDays(now, 1).toISOString();
+          break;
+      }
+
       setLoading(true);
       setFetchError(null);
       try {
@@ -211,12 +332,13 @@ export default function ProjectErrorsPage() {
         setProject(projectDetails);
 
         const errorsResponse: ErrorApiResponse = await fetchWithErrorHandling(
-            `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}`, 
+            `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}` +
+            `${startDate ? `&startDate=${encodeURIComponent(startDate)}` : ''}` +
+            `${endDate ? `&endDate=${encodeURIComponent(endDate)}` : ''}`,
             { }, 
             session.access_token
         );
-        setErrors(errorsResponse.data);
-        setTotalCount(errorsResponse.totalCount);
+        setErrors(errorsResponse.data, errorsResponse.totalCount);
 
       } catch (err: any) {
         console.error('Error fetching project data or errors:', err);
@@ -228,20 +350,27 @@ export default function ProjectErrorsPage() {
     };
 
     fetchData();
-  }, [loadingAuth, session, projectId, currentPage, limit, API_BASE_URL, navigate]); 
+  }, [loadingAuth, session, projectId, currentPage, limit, API_BASE_URL, navigate, USE_MOCK_DATA, preset, customStartDate, customEndDate]); // Added USE_MOCK_DATA, preset, customStartDate, customEndDate to deps
 
-  // Realtime Subscription Setup
+  // Update temporary dates if global custom range changes
   useEffect(() => {
+    setTempStartDate(customStartDate ?? new Date());
+    setTempEndDate(customEndDate ?? new Date());
+  }, [customStartDate, customEndDate]);
+
+  // Realtime Subscription Setup (Bypass if mocking)
+  useEffect(() => {
+    if (USE_MOCK_DATA) {
+        console.log('[Mock Data] Skipping realtime subscription setup.')
+        return; // Don't subscribe if using mock data
+    } 
+      
+    // Original realtime logic (only runs if USE_MOCK_DATA is false)
     if (!session || !projectId) return;
     console.log(`[Realtime] Setting up subscription for project: ${projectId}`);
     const handleNewError = (payload: any) => {
       if (payload.eventType !== 'INSERT' || !payload.new || typeof payload.new !== 'object') return;
-      const newError = payload.new as ApiError;
-      setErrors((currentErrors) => {
-          if (currentErrors.some(e => e.id === newError.id)) return currentErrors;
-          return [newError, ...currentErrors];
-      });
-      setTotalCount(currentTotal => currentTotal + 1);
+      addError(payload.new as ApiError);
     };
     const channel: RealtimeChannel = supabase.channel(`project-errors:${projectId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'errors', filter: `project_id=eq.${projectId}` }, handleNewError)
@@ -252,7 +381,7 @@ export default function ProjectErrorsPage() {
     return () => {
       if (channel) supabase.removeChannel(channel).catch(console.error);
     };
-  }, [supabase, projectId, session]);
+  }, [supabase, projectId, session, USE_MOCK_DATA]); // Added USE_MOCK_DATA to deps
 
   // --- Memoized Derived State --- 
   const filteredErrors = useMemo(() => {
@@ -323,8 +452,19 @@ export default function ProjectErrorsPage() {
       return <Icon className="ml-1 h-4 w-4 text-gray-500" />; // Adjusted class
   };
 
+  // --- Helper for Stack Preview ---
+  const getStackPreview = (stackTrace: string | null | undefined): string => {
+    if (!stackTrace) return 'N/A';
+    // Normalize line endings before splitting
+    const lines = stackTrace.replace(/\\n/g, '\n').split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    if (lines.length === 0) return 'N/A';
+    // Attempt to get the last meaningful line (often starts with 'at ')
+    const lastFrame = lines.reverse().find(line => line.startsWith('at '));
+    // Reduce maxLength for preview
+    return lastFrame ? truncateString(lastFrame, 60) : truncateString(lines[0], 60);
+  };
 
-  // --- Render Logic --- 
+  // --- Render Logic ---
   return (
     <div className="flex min-h-screen w-full flex-col bg-black text-gray-200">
        {/* HEADER (as defined before) */}
@@ -332,13 +472,14 @@ export default function ProjectErrorsPage() {
          <Link to="/dashboard" className="flex items-center gap-2 font-semibold text-blue-400 hover:text-blue-300">
             <ArrowLeftIcon className="h-5 w-5" /> 
             <img 
-                src="/lovable-uploads/carbon.svg" 
+                src="/lovable-uploads/errly-logo.png" 
                 alt="Errly Logo" 
-                className="h-6 w-6 rounded-full object-cover"
+                className="h-8 w-8 rounded-full object-cover"
             /> 
             <span className="sr-only">Errly</span> 
          </Link>
          <div className="ml-auto flex items-center gap-4">
+           {/* User Email and Logout restored to original position */} 
            {authUser && <span className="hidden text-sm text-gray-400 md:inline-block">{authUser.email}</span>}
            <button
              onClick={signOut} 
@@ -355,36 +496,95 @@ export default function ProjectErrorsPage() {
          {/* Title */}
          <h1 className="mt-2 text-2xl font-semibold text-gray-100">Errors for: {project ? project.name : 'Loading project...'}</h1>
 
-         {/* Search + Level Filters */} 
-         <div className="flex flex-wrap items-center gap-4">
-           <div className="relative flex-1 md:grow-0">
-             <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
-             <Input
-               type="search"
-               placeholder="Filter by message…"
-               value={searchTerm}
-               onChange={(e) => setSearchTerm(e.target.value)} // Now typed
-               className="w-full rounded-lg border border-white/10 bg-white/5 px-10 text-gray-200 placeholder-gray-500 backdrop-blur-md md:w-[240px] lg:w-[320px]"
-             />
-           </div>
-           <div className="ml-auto flex flex-wrap items-center gap-2">
-              {(['all', 'error', 'warn', 'info', 'log'] as const).map((level) => {
-                const details = getLevelDetails(level);
-                const isActive = levelFilter === level;
-                const Icon = details.icon; 
-                return (
-                  <Button
-                    key={level}
-                    variant={isActive ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setLevelFilter(level)}
-                    className={`flex items-center gap-1 rounded-full border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-wide backdrop-blur-md transition ${isActive ? details.filterColorClass : 'hover:bg-white/10'} `}
+         {/* Filters Row */}
+         <div className="flex flex-wrap items-center gap-4 justify-between"> 
+           {/* Left Side: Search ONLY */}
+           <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
+              {/* Search Input */}
+              <div className="relative flex-1 md:grow-0 min-w-[200px]"> 
+                 <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+                 <Input
+                   type="search"
+                   placeholder="Filter by message…"
+                   value={searchTerm}
+                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm((e.target as HTMLInputElement).value)}
+                   className="w-full rounded-full border border-white/10 bg-white/5 pl-10 pr-3 py-1.5 text-gray-200 placeholder-gray-500 backdrop-blur-md md:w-[240px] lg:w-[320px]"
+                 />
+              </div>
+              {/* Date Range Dropdown - MOVED TO RIGHT SIDE */}
+            </div>
+
+           {/* Right Side: Level Filters + Date Range */}
+           <div className="flex flex-wrap items-center gap-2"> 
+             {/* Date Range Dropdown - ADDED HERE */} 
+             <Menu as="div" className="relative inline-block text-left">
+               <Menu.Button as={React.Fragment}>
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="flex items-center gap-1 rounded-full border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-wide text-gray-300 backdrop-blur-md transition hover:bg-white/10"
                   >
-                    <Icon className="h-4 w-4" /> 
-                    {level}
+                   <CalendarDaysIcon className="-ml-0.5 mr-1 h-5 w-5 text-gray-400" aria-hidden="true" />
+                   <span>{preset === 'custom' ? 'Custom Range' : `Last ${preset}`}</span> {/* Wrap text in span */} 
+                   <ChevronDownIcon className="ml-auto h-5 w-5 text-gray-400" aria-hidden="true" /> {/* Move icon right */} 
                   </Button>
-                );
-              })}
+               </Menu.Button>
+               <Transition
+                 as={React.Fragment}
+                 enter="transition ease-out duration-100"
+                 enterFrom="transform opacity-0 scale-95"
+                 enterTo="transform opacity-100 scale-100"
+                 leave="transition ease-in duration-75"
+                 leaveFrom="transform opacity-100 scale-100"
+                 leaveTo="transform opacity-0 scale-95"
+               >
+                 <Menu.Items className="absolute right-0 z-10 mt-2 w-40 origin-top-right rounded-md bg-gray-900/80 backdrop-blur-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-white/10"> {/* Changed origin-top-left to origin-top-right */}
+                   <div className="py-1">
+                     {(['1h', '24h', '7d'] as const).map((p) => (
+                       <Menu.Item key={p}>
+                         {({ active }) => (
+                           <button
+                             onClick={() => setPreset(p)}
+                             className={`${ active ? 'bg-white/10 text-gray-100' : 'text-gray-300' } ${ preset === p ? 'font-bold' : '' } block w-full px-4 py-2 text-left text-sm`}
+                           >
+                             Last {p}
+                           </button>
+                         )}
+                       </Menu.Item>
+                     ))}
+                     <Menu.Item>
+                         {({ active }) => (
+                           <button
+                             onClick={() => setIsDatePickerOpen(true)}
+                             className={`${ active ? 'bg-white/10 text-gray-100' : 'text-gray-300' } ${ preset === 'custom' ? 'font-bold' : '' } block w-full px-4 py-2 text-left text-sm`}
+                           >
+                             Custom Range...
+                           </button>
+                         )}
+                       </Menu.Item>
+                   </div>
+                 </Menu.Items>
+               </Transition>
+             </Menu>
+             
+             {/* Level Filters */}
+             {(['all', 'error', 'warn', 'info', 'log'] as const).map((level) => {
+               const details = getLevelDetails(level);
+               const isActive = levelFilter === level;
+               const Icon = details.icon; 
+               return (
+                 <Button
+                   key={level}
+                   variant={isActive ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => setLevelFilter(level)}
+                   className={`flex items-center gap-1 rounded-full border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-wide backdrop-blur-md transition ${isActive ? details.filterColorClass : 'hover:bg-white/10'} `}
+                 >
+                   <Icon className="h-4 w-4" /> 
+                   {level}
+                 </Button>
+               );
+             })}
            </div>
          </div>
 
@@ -402,61 +602,131 @@ export default function ProjectErrorsPage() {
            </div>
          )}
 
-         {/* Errors Table (as defined before) */}
+         {/* Errors Table (Refactored) */}
          {!loading && !fetchError && (
           <Card className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-lg">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-white/10 text-sm">
+                {/* Use table-auto for flexible columns, min-w-full still useful */}
+                <table className="min-w-full table-auto divide-y divide-white/10 text-sm">
+                  <colgroup><col className="w-[40px]" /><col className="w-[35%]" /><col className="w-[90px]" /><col className="w-[80px]" /><col className="w-[20%]" /><col className="w-[20%]" /><col className="w-[110px]" /><col className="w-[70px]" /></colgroup>
                   <thead className="bg-white/5">
                     <tr>
-                      <th scope="col" className="w-[32%] px-4 py-3 text-left font-semibold tracking-wider text-gray-400">
+                      {/* Level Icon - No Header Text */}
+                      <th scope="col" className="px-2 py-3 text-left font-semibold tracking-wider text-gray-400">
+                        <span className="sr-only">Level</span>
+                      </th>
+                      {/* Message */}
+                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
                         <Button variant="ghost" size="sm" onClick={() => handleSort('message')} className="-ml-2 h-8 text-gray-400 hover:text-gray-200">
                           Message {renderSortIcon('message')}
                         </Button>
                       </th>
-                      <th scope="col" className="w-[28%] px-4 py-3 text-left font-semibold tracking-wider text-gray-400">
-                        Stack Trace
+                      {/* Sparkline */}
+                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
+                        Trend (24h)
                       </th>
-                      <th scope="col" className="w-[25%] px-4 py-3 text-left font-semibold tracking-wider text-gray-400">
+                      {/* Hits 24h */}
+                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
+                        Hits (24h)
+                      </th>
+                      {/* Stack Preview */}
+                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
+                        Stack Preview
+                      </th>
+                      {/* Metadata */}
+                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
                         Metadata
                       </th>
-                      <th scope="col" className="w-[15%] px-4 py-3 text-left font-semibold tracking-wider text-gray-400">
+                      {/* Received */}
+                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
                         <Button variant="ghost" size="sm" onClick={() => handleSort('received_at')} className="-ml-2 h-8 text-gray-400 hover:text-gray-200">
                           Received {renderSortIcon('received_at')}
                         </Button>
                       </th>
+                      {/* Actions - No Header Text */}
+                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
+                         <span className="sr-only">Actions</span>
+                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="">
                     {sortedAndFilteredErrors.length > 0 ? (
-                      sortedAndFilteredErrors.map((error) => {
-                        const Icon = getLevelIcon(error.level);
+                      sortedAndFilteredErrors.map((error, index) => {
+                        const LevelIcon = getLevelIcon(error.level);
+                        const levelBorderClass = getLevelRowBorderClassName(error.level); // Get specific border class
+ 
+                        // TODO: Replace with actual aggregated data from API/Store
+                        const mockSparklineData = Array.from({ length: 24 }, () => Math.random() * 10 + 1);
+
                         return (
                           <tr
                             key={error.id}
-                            onClick={() => handleRowClick(error)}
-                            className={`cursor-pointer border-l-4 ${getLevelRowClassName(error.level)} transition-colors hover:bg-white/5`}
+                            onClick={() => handleRowClick(error)} // Restore row click to open modal
+                            // Apply specific border class and add generic hover class
+                            className={`group relative cursor-pointer border-l-4 ${levelBorderClass} hover:bg-white/5 border-b border-white/5 transition-all duration-150 ${error.state === 'resolved' ? 'opacity-40 pointer-events-none' : ''}`}
                           >
-                            <td className="flex items-start gap-2 whitespace-normal px-4 py-3 align-top text-gray-100">
-                              <Icon className="mt-0.5 h-4 w-4 shrink-0" /> 
-                              {error.message}
+                            {/* Level Icon */}
+                            <td className="px-2 py-3 align-top">
+                              <LevelIcon className="mt-0.5 h-4 w-4 shrink-0" title={error.level} />
                             </td>
-                            <td className="whitespace-pre-wrap px-4 py-3 align-top font-mono text-gray-400">
-                              {truncateString(error.stack_trace, 120)}
+                            {/* Message (flex=3, truncate, tooltip) */}
+                            <td className="px-3 py-3 align-top text-gray-100">
+                              <div className="truncate" title={error.message}>
+                                {error.message}
+                              </div>
                             </td>
-                            <td className="whitespace-pre-wrap px-4 py-3 align-top font-mono text-gray-400">
-                              {formatMetadata(error.metadata, 120)}
+                            {/* Sparkline (Placeholder) */}
+                            <td className="px-3 py-3 align-middle"> {/* Use align-middle */} 
+                                {/* <Sparkline data={mockSparklineData} height={24} width={90} /> */}
+                                <div>Sparkline Commented Out</div>
                             </td>
-                            <td className="whitespace-nowrap px-4 py-3 align-top text-gray-400">
+                            {/* Hits 24h (90px, placeholder) */}
+                            <td className="px-3 py-3 text-center align-top text-gray-400">
+                              - {/* Placeholder */}
+                            </td>
+                            {/* Stack Preview (flex=2, last frame, tooltip) */}
+                            <td className="px-3 py-3 align-top font-mono text-gray-400">
+                               <div className="truncate" title={error.stack_trace ?? undefined}>
+                                {getStackPreview(error.stack_trace)}
+                               </div>
+                            </td>
+                            {/* Metadata (flex=2, truncate, tooltip) */}
+                            <td className="px-3 py-3 align-top font-mono text-gray-400">
+                              <div className="truncate" title={typeof error.metadata === 'string' ? error.metadata : JSON.stringify(error.metadata)}> 
+                                {formatMetadata(error.metadata, 50)} {/* Reduced maxLength */} 
+                              </div>
+                            </td>
+                            {/* Received (120px, relative, tooltip) */}
+                            <td className="whitespace-nowrap px-3 py-3 align-top text-gray-400" title={new Date(error.received_at).toISOString()}>
                               {formatDistanceToNow(new Date(error.received_at), { addSuffix: true })}
+                            </td>
+                             {/* Quick Actions (Appears on hover) */}
+                            <td className="px-3 py-3 align-top">
+                               <div className="absolute right-2 top-1/2 flex -translate-y-1/2 transform items-center space-x-1 rounded-full bg-black/50 p-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                 <button
+                                    onClick={(e) => { e.stopPropagation(); console.log('Resolve clicked:', error.id); }} // Placeholder
+                                    title="Mark Resolved"
+                                    className="rounded-full p-1 text-gray-300 hover:bg-white/20 hover:text-white"
+                                 >
+                                     <CheckCircleIcon className="h-4 w-4" />
+                                 </button>
+                                 <button
+                                     onClick={(e) => { e.stopPropagation(); console.log('Mute clicked:', error.id); }} // Placeholder
+                                     title="Mute Error"
+                                     className="rounded-full p-1 text-gray-300 hover:bg-white/20 hover:text-white"
+                                 >
+                                     <BellSlashIcon className="h-4 w-4" />
+                                 </button>
+                               </div>
                             </td>
                           </tr>
                         );
                       })
                     ) : (
                       <tr>
-                        <td colSpan={4} className="px-4 py-10 text-center text-gray-500">
+                        {/* Updated colSpan to match new column count */}
+                        <td colSpan={8} className="px-4 py-10 text-center text-gray-500">
                           {searchTerm || levelFilter !== 'all' ? 'No errors match your filter.' : 'No errors found for this project yet.'}
                         </td>
                       </tr>
@@ -486,8 +756,48 @@ export default function ProjectErrorsPage() {
          )}
        </main>
 
+       {/* Custom Date Range Picker Modal */}
+       {isDatePickerOpen && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+           <div className="rounded-lg bg-gray-800 p-6 shadow-xl border border-white/10 w-full max-w-md text-gray-200">
+             <h3 className="text-lg font-medium mb-4">Select Custom Date Range</h3>
+             <div className="space-y-4">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-400 mb-1">Start Date</label>
+                   <div className="w-full rounded-md border border-dashed border-white/20 bg-white/5 px-3 py-1.5 text-gray-400 h-[38px] flex items-center">DatePicker commented out</div>
+                 </div>
+                 <div>
+                   <label className="block text-sm font-medium text-gray-400 mb-1">End Date</label>
+                   <div className="w-full rounded-md border border-dashed border-white/20 bg-white/5 px-3 py-1.5 text-gray-400 h-[38px] flex items-center">DatePicker commented out</div>
+                 </div>
+             </div>
+             <div className="mt-6 flex justify-end gap-3">
+               <Button variant="outline" size="sm" onClick={() => setIsDatePickerOpen(false)} className="bg-gray-600 hover:bg-gray-500 border-gray-500 text-gray-200">
+                 Cancel
+               </Button>
+               <Button variant="default" size="sm" onClick={() => {
+                   if (tempStartDate && tempEndDate) {
+                       setCustomRange(tempStartDate, tempEndDate);
+                   }
+                   setIsDatePickerOpen(false);
+                 }}
+                 className="bg-blue-600 hover:bg-blue-700 text-white"
+               >
+                 Apply Range
+               </Button>
+             </div>
+           </div>
+         </div>
+       )}
+
        {/* Error Detail Modal */}
-       <ErrorDetailModal isOpen={isModalOpen} onClose={handleCloseModal} error={selectedError} />
+       <ErrorDetailModal 
+         isOpen={isModalOpen} 
+         onClose={handleCloseModal} 
+         error={selectedError}
+         onResolve={resolveErrorOptimistic}
+         onMute={muteErrorOptimistic}
+       />
     </div>
   );
 }
