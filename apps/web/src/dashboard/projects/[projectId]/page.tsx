@@ -631,7 +631,7 @@ export default function ProjectErrorsPage() {
                       </th>
                       {/* Sparkline */}
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
-                        Trend (24h)
+                        Trend
                       </th>
                       {/* Hits */}
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
@@ -687,8 +687,11 @@ export default function ProjectErrorsPage() {
                             </td>
                             {/* Sparkline (Placeholder) */}
                             <td className="px-3 py-3 align-middle"> {/* Use align-middle */} 
-                                {/* <Sparkline data={mockSparklineData} height={24} width={90} /> */}
-                                <div>Sparkline Commented Out</div>
+                                <Sparkline 
+                                  data={error.trend?.map(t => t.count) ?? []} 
+                                  height={24} 
+                                  width={90} 
+                                />
                             </td>
                             {/* Hits (Display aggregated count) */}
                             <td className="px-3 py-3 text-center align-top font-medium text-gray-200">

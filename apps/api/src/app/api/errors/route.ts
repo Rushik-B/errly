@@ -53,10 +53,11 @@ const errorSchema = z.object({
 interface AggregatedErrorGroup {
   message: string;
   level: string;
-  count: number; // Assuming count fits within standard number type
-  last_seen: string; // ISO timestamp string
-  representative_id: string; // UUID string
-  total_groups: number; // Assuming total_groups fits within standard number type
+  count: number;
+  last_seen: string;
+  representative_id: string;
+  trend: { time: string; count: number }[]; // Added trend data structure
+  total_groups: number;
 }
 
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
@@ -201,8 +202,7 @@ export async function GET(request: NextRequest) {
         level: group.level,
         received_at: group.last_seen, // Use the timestamp of the latest error
         count: group.count, // The count of errors in this group
-        // stack_trace and metadata are not directly available from aggregation,
-        // Set them to null or fetch the latest error details if needed (more complex)
+        trend: group.trend, // Pass trend data through
         stack_trace: null, 
         metadata: null,
     }));

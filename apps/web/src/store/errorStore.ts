@@ -9,6 +9,7 @@ export interface ApiError {
   metadata: any | null;
   level: string;
   count?: number; // Added: Count for aggregated errors
+  trend?: { time: string; count: number }[]; // Added: Trend data for sparkline
   state?: 'resolved' | 'active'; // Added: error state
   mute_until?: string | null; // Added: ISO string or null
   // Add other fields like request if needed
