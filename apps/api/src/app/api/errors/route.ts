@@ -50,14 +50,14 @@ const errorSchema = z.object({
 });
 
 // Define the type for the RPC response rows
-interface AggregatedErrorGroup {
-  message: string;
-  level: string;
-  count: number;
-  last_seen: string;
-  representative_id: string;
-  trend: { time: string; count: number }[]; // Added trend data structure
-  total_groups: number;
+interface AggregatedErrorGroupV2 { // Renamed interface for clarity
+  out_message: string;         // Use out_ prefix matching RETURNS TABLE
+  out_level: string;
+  out_count: number;
+  out_last_seen: string;
+  out_representative_id: string;
+  out_trend: { time: string; count: number }[];
+  out_total_groups: number;
 }
 
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
@@ -181,29 +181,27 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Call the RPC function
+    // Call the NEW RPC function name
     const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
-      .rpc('get_aggregated_errors', rpcParams);
+      .rpc('get_aggregated_errors_trend_v1', rpcParams); // <-- Changed function name
 
     if (rpcError) {
-      console.error('Error calling get_aggregated_errors RPC:', rpcError.message);
+      console.error('Error calling get_aggregated_errors_trend_v1 RPC:', rpcError.message);
       return NextResponse.json({ error: 'Failed to fetch aggregated errors', details: rpcError.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
-    // Determine the total count of unique groups
-    // The function returns total_groups on each row, so pick it from the first row if available.
-    const totalUniqueGroups = aggregatedErrors && aggregatedErrors.length > 0 ? aggregatedErrors[0].total_groups : 0;
+    // Determine the total count of unique groups from the new output column name
+    const totalUniqueGroups = aggregatedErrors && aggregatedErrors.length > 0 ? aggregatedErrors[0].out_total_groups : 0;
 
-    // Map the RPC response to the expected API response structure
-    // We need to align field names (e.g., last_seen -> received_at, representative_id -> id)
-    const mappedData = (aggregatedErrors ?? []).map((group: AggregatedErrorGroup) => ({
-        id: group.representative_id, // Use the ID of the latest error in the group
-        message: group.message,
-        level: group.level,
-        received_at: group.last_seen, // Use the timestamp of the latest error
-        count: group.count, // The count of errors in this group
-        trend: group.trend, // Pass trend data through
-        stack_trace: null, 
+    // Map the RPC response to the expected API response structure using new output column names
+    const mappedData = (aggregatedErrors ?? []).map((group: AggregatedErrorGroupV2) => ({ // Use new interface
+        id: group.out_representative_id, // Use out_ prefix
+        message: group.out_message,       // Use out_ prefix
+        level: group.out_level,           // Use out_ prefix
+        received_at: group.out_last_seen, // Use out_ prefix
+        count: group.out_count,           // Use out_ prefix
+        trend: group.out_trend,           // Use out_ prefix
+        stack_trace: null,
         metadata: null,
     }));
 
