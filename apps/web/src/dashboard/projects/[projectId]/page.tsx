@@ -191,38 +191,198 @@ const MOCK_PROJECT: Project = {
   name: 'Local Mock Project',
 };
 
+// Expanded Mock Errors (Corrected Version)
 const MOCK_ERRORS: ApiError[] = [
+  // Existing errors with added count/trend placeholders
   {
-    id: 'err-1', message: 'TypeError: Cannot read property \'name\' of undefined', 
-    received_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(), // 5 mins ago
+    id: 'err-1', message: 'TypeError: Cannot read property \'name\' of undefined',
+    received_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
     stack_trace: 'at getUser (userUtils.js:15)\nat processUser (main.js:42)\nat handleRequest (server.js:110)',
-    metadata: { userId: 'abc', path: '/users/profile' }, level: 'error'
+    metadata: { userId: 'abc', path: '/users/profile' }, level: 'error',
+    count: 15,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 3) }))
   },
   {
-    id: 'err-2', message: 'Failed to fetch resource: Network error', 
-    received_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1 hour ago
-    stack_trace: null,
-    metadata: { url: '/api/data', attempt: 3 }, level: 'warn'
+    id: 'err-2', message: 'Failed to fetch resource: Network error',
+    received_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+    stack_trace: null, // Null stack trace
+    metadata: { url: '/api/data', attempt: 3 }, level: 'warn',
+    count: 7,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
   },
   {
-    id: 'err-3', message: 'User logged in successfully', 
-    received_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(), // 2 hours ago
-    stack_trace: null,
-    metadata: { userId: 'xyz', source: 'loginPage' }, level: 'info'
+    id: 'err-3', message: 'User logged in successfully',
+    received_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    stack_trace: null, // Null stack trace
+    metadata: { userId: 'xyz', source: 'loginPage' }, level: 'info',
+    count: 25,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 5) }))
   },
    {
-    id: 'err-4', message: 'Processing batch job #567', 
-    received_at: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3 hours ago
-    stack_trace: null,
-    metadata: { jobId: 567, items: 100 }, level: 'log'
+    id: 'err-4', message: 'Processing batch job #567',
+    received_at: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+    stack_trace: null, // Null stack trace
+    metadata: null, // Null metadata
+    level: 'log',
+    count: 1,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: i > 20 ? 1 : 0 }))
   },
    {
-    id: 'err-5', message: 'Another undefined property access', 
-    received_at: new Date(Date.now() - 1000 * 60 * 240).toISOString(), // 4 hours ago
+    id: 'err-5', message: 'Another undefined property access',
+    received_at: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
     stack_trace: 'at getSettings (settings.js:22)\nat applyTheme (ui.js:95)',
-    metadata: { component: 'ThemeSwitcher' }, level: 'error'
+    metadata: { component: 'ThemeSwitcher' }, level: 'error',
+    count: 11,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
   },
+  // New Mock Errors
+  {
+    id: 'err-6', message: 'Database connection timeout',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), // 6 hours ago
+    stack_trace: 'at connectToDb (db.js:50)\nat initialize (server.js:25)',
+    metadata: { poolSize: 10, retries: 3 }, level: 'error',
+    count: 3,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 1) }))
+  },
+  {
+    id: 'err-7', message: 'Third-party API rate limit exceeded',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(), // 8 hours ago
+    stack_trace: null, // Null stack trace
+    metadata: { api: 'external-service', limit: '100/min' }, level: 'warn',
+    count: 22,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 4) }))
+  },
+  {
+    id: 'err-8', message: 'Configuration loaded',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString(), // 10 hours ago
+    stack_trace: null, // Null stack trace
+    metadata: { environment: 'staging', version: '1.2.0' }, level: 'info',
+    count: 1,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: i < 2 ? 1 : 0 }))
+  },
+  {
+    id: 'err-9', message: 'User preference updated: dark mode enabled',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(), // 12 hours ago
+    stack_trace: null, // Null stack trace
+    metadata: { userId: 'user-456', preference: 'theme', value: 'dark' }, level: 'log',
+    count: 5,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 1) }))
+  },
+  {
+    id: 'err-10', message: 'Invalid input: age must be a positive number',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 15).toISOString(), // 15 hours ago
+    stack_trace: 'at validateAge (validation.js:88)\nat processForm (formHandler.js:30)',
+    metadata: { formId: 'signup', field: 'age', value: -5 }, level: 'warn',
+    count: 9,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
+  },
+  {
+    id: 'err-11', message: 'Security vulnerability detected: SQL injection attempt',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(), // 18 hours ago
+    stack_trace: 'at handleQuery (dbQuery.js:120)\nat processRequest (server.js:150)',
+    metadata: { input: "' OR '1'='1" }, level: 'error', // Removed severity
+    count: 2,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 1) }))
+  },
+  { // Corrected format for err-12
+    id: 'err-12',
+    message: 'Disk space running low',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(), // 20 hours ago
+    stack_trace: null, // Null stack trace
+    metadata: { available: '5GB', threshold: '10GB' },
+    level: 'warn',
+    count: 1,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: i > 20 ? 1 : 0 }))
+  },
+  {
+    id: 'err-13', message: 'Cache cleared successfully',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(), // 22 hours ago
+    stack_trace: null, // Null stack trace
+    metadata: null, // Null metadata
+    level: 'info',
+    count: 1,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: i === 2 ? 1 : 0 }))
+  },
+  {
+    id: 'err-14', message: 'Fallback initiated for external service',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString(), // 23 hours ago
+    stack_trace: 'at fallbackService (utils.js:200)', // Has stack trace
+    metadata: null, // Null metadata
+    level: 'warn',
+    count: 4,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 1) }))
+  },
+  {
+    id: 'err-15', message: 'User session started',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+    stack_trace: null, // Null stack trace
+    metadata: { sessionId: 'session-789', ip: '192.168.1.100' }, level: 'log',
+    count: 18,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 3) }))
+  },
+  // --- Added complex stack trace errors ---
+  {
+    id: 'err-16', message: 'Complex async operation failed: timeout',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+    stack_trace:
+`TimeoutError: Operation timed out after 30000ms
+    at Timeout.<anonymous> (/app/node_modules/some-async-lib/dist/timeout.js:89:13)
+    at listOnTimeout (node:internal/timers:569:17)
+    at processTimers (node:internal/timers:512:7)
+    at async processUserData (/app/src/services/userProcessor.ts:152:9)
+    at async handleUserRequest (/app/src/controllers/userController.js:45:18)
+    at async /app/node_modules/express/lib/router/layer.js:95:5
+    at async runMicrotasks (<anonymous>)
+    at async processTicksAndRejections (node:internal/process/task_queues:96:5)`,
+    metadata: { operation: 'processUserData', timeout: 30000 }, level: 'error',
+    count: 6,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
+  },
+  {
+    id: 'err-17', message: 'Null reference in deeply nested object',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
+    stack_trace:
+`TypeError: Cannot read properties of null (reading 'address')
+    at getFullAddress (./src/utils/addressFormatter.js:25:45)
+    at formatUserProfile (./src/components/UserProfileCard.jsx:112:28)
+    at renderUserProfile (./src/pages/ProfilePage.tsx:55:15)
+    at renderWithLayout (./src/layout/MainLayout.js:30:10)
+    at PageComponent.render (/app/node_modules/react-dom/cjs/react-dom-server.node.development.js:4390:14)
+    at PageComponent.read (/app/node_modules/react-dom/cjs/react-dom-server.node.development.js:4312:29)
+    at renderToString (react-dom-server.node.development.js:4730:27)`,
+    metadata: { component: 'UserProfileCard', attemptedProperty: 'address' }, level: 'error',
+    count: 19,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 3) }))
+  },
+  {
+    id: 'err-18', message: 'Warning: Deprecated API usage',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 9).toISOString(), // 9 hours ago
+    stack_trace:
+`Warning: Function 'old_calculate_metrics' is deprecated. Use 'new_metric_calculator' instead.
+    at calculateDashboardData (/app/src/dashboard/dataProcessor.js:78:9)
+    at generateReport (/app/src/reporting/reportGenerator.ts:120:18)
+    at scheduledTaskRunner (/app/src/scheduler/tasks.js:42:5)`, // Shorter but still multi-line
+    metadata: { deprecatedFunction: 'old_calculate_metrics', suggested: 'new_metric_calculator' }, level: 'warn',
+    count: 30,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 4) }))
+  },
+  {
+    id: 'err-19', message: 'Unhandled promise rejection',
+    received_at: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(), // 14 hours ago
+    stack_trace:
+`UnhandledPromiseRejectionWarning: Error: Could not connect to payment gateway
+    at PaymentProcessor.process (/app/src/payment/processor.js:115:19)
+    at async processOrder (/app/src/controllers/orderController.ts:210:7)
+    at async /app/node_modules/koa-router/lib/layer.js:83:32
+    (Use \`node --trace-warnings ...\` to show where the warning was created)
+(node:12345) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). To terminate the node process on unhandled promise rejection, use the CLI flag \`--unhandled-rejections=strict\` (see https://nodejs.org/api/cli.html#cli_unhandled_rejections_mode). (rejection id: 1)`,
+    metadata: { orderId: 'order-987', gateway: 'stripe' }, level: 'error',
+    count: 8,
+    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
+  }
+  // --- End complex stack trace errors ---
 ];
+
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 // --- END Mock Data ---
 
@@ -616,7 +776,8 @@ export default function ProjectErrorsPage() {
               <div className="overflow-x-auto">
                 {/* Use table-auto for flexible columns, min-w-full still useful */}
                 <table className="min-w-full table-auto divide-y divide-white/10 text-sm">
-                  <colgroup><col className="w-[40px]" /><col className="w-[35%]" /><col className="w-[90px]" /><col className="w-[80px]" /><col className="w-[20%]" /><col className="w-[20%]" /><col className="w-[110px]" /><col className="w-[70px]" /></colgroup>
+                  {/* Adjusted colgroup: Removed Stack Preview column width */}
+                  <colgroup><col className="w-[40px]" /><col className="w-[40%]" /><col className="w-[90px]" /><col className="w-[80px]" /><col className="w-[25%]" /><col className="w-[110px]" /><col className="w-[70px]" /></colgroup>
                   <thead className="bg-white/5">
                     <tr>
                       {/* Level Icon - No Header Text */}
@@ -638,10 +799,6 @@ export default function ProjectErrorsPage() {
                         <Button variant="ghost" size="sm" onClick={() => handleSort('count')} className="-ml-2 h-8 text-gray-400 hover:text-gray-200 p-1">
                           Hits {renderSortIcon('count')}
                         </Button>
-                      </th>
-                      {/* Stack Preview */}
-                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
-                        Stack Preview
                       </th>
                       {/* Metadata */}
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
@@ -697,12 +854,6 @@ export default function ProjectErrorsPage() {
                             <td className="px-3 py-3 text-center align-top font-medium text-gray-200">
                               {error.count ?? '-'}
                             </td>
-                            {/* Stack Preview (flex=2, last frame, tooltip) */}
-                            <td className="px-3 py-3 align-top font-mono text-gray-400">
-                               <div className="truncate" title={error.stack_trace ?? undefined}>
-                                {getStackPreview(error.stack_trace)}
-                               </div>
-                            </td>
                             {/* Metadata (flex=2, truncate, tooltip) */}
                             <td className="px-3 py-3 align-top font-mono text-gray-400">
                               <div className="truncate" title={typeof error.metadata === 'string' ? error.metadata : JSON.stringify(error.metadata)}> 
@@ -738,7 +889,7 @@ export default function ProjectErrorsPage() {
                     ) : (
                       <tr>
                         {/* Updated colSpan to match new column count */}
-                        <td colSpan={8} className="px-4 py-10 text-center text-gray-500">
+                        <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
                           {searchTerm || levelFilter !== 'all' ? 'No errors match your filter.' : 'No errors found for this project yet.'}
                         </td>
                       </tr>

@@ -11,6 +11,9 @@ import { Toaster } from 'react-hot-toast';
 import styles from './ErrorDetailModal.module.css';
 import { useAuth } from '../context/AuthContext.tsx';
 
+// Import the mock data flag
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
 // Re-use the ApiError type or define it here if not easily importable
 // Assume state and request might be added later
 interface ApiError {
@@ -98,95 +101,71 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({
 }) => {
   const { session } = useAuth(); // Get session for auth token
   const [isLoading, setIsLoading] = useState(false);
-  const [detailedError, setDetailedError] = useState<ApiError | null>(error); // Initialize with passed error
+  // Initialize detailedError state ONLY when the modal opens with a new error
+  const [detailedError, setDetailedError] = useState<ApiError | null>(null);
 
-  // Fetch full error details when modal opens or error ID changes
+  // Effect to initialize detailedError when the modal opens or the initial error prop changes
   useEffect(() => {
-    if (isOpen && error?.id) {
+    if (isOpen && error) {
+        setDetailedError(error); // Set initial state from prop
+        setIsLoading(true); // Assume loading until details confirmed/fetched
+    } else if (!isOpen) {
+        setDetailedError(null); // Clear state on close
+        setIsLoading(false);
+    }
+  }, [isOpen, error]); // Depend on isOpen and the error prop object itself
+
+  // Effect to fetch full details if needed
+  useEffect(() => {
+    // --- ADDED: Bail out early if using mock data --- 
+    if (USE_MOCK_DATA) {
+        setIsLoading(false); // Ensure loading is stopped
+        return; 
+    }
+    // --- End Added Check ---
+
+    // Only run if modal is open, we have an initial error ID, and we are currently loading
+    if (isOpen && detailedError?.id && isLoading && session) {
       const fetchDetails = async () => {
-        // Only fetch if stack trace/metadata seems missing (heuristic)
-        if (detailedError?.stack_trace === null || detailedError?.metadata === null) {
-            setIsLoading(true);
-            console.log(`[Modal] Fetching details for error ID: ${error.id}`);
-            try {
-              const fullErrorData: ApiError = await fetchWithErrorHandling(
-                `${API_BASE_URL}/api/errors/${error.id}`,
-                { method: 'GET' },
-                session?.access_token
-              );
-              console.log('[Modal] Fetched details:', fullErrorData);
-              // Merge with existing data in case aggregated data had fields not in full fetch (like count/trend)
-              setDetailedError(prev => ({ 
-                ...(prev ?? {}), 
-                ...fullErrorData 
-              })); 
-            } catch (err) {
-              console.error('[Modal] Failed to fetch error details:', err);
-              toast.error('Could not load full error details.');
-              // Keep existing partial data if fetch fails
-              setDetailedError(error); 
-            } finally {
-              setIsLoading(false);
-            }
-        } else {
-             // Already have details or initial error had them, ensure state is up-to-date
-             setDetailedError(error);
-             setIsLoading(false); 
+        console.log(`[Modal] Fetching details for error ID: ${detailedError.id}`);
+        try {
+          const fullErrorData: ApiError = await fetchWithErrorHandling(
+            `${API_BASE_URL}/api/errors/${detailedError.id}`,
+            { method: 'GET' },
+            session.access_token // Ensure token is passed
+          );
+          console.log('[Modal] Fetched details:', fullErrorData);
+          // Update state with fully fetched details
+          setDetailedError(prev => ({ 
+            ...(prev ?? {}), // Keep potential existing fields like count/trend
+            ...fullErrorData 
+          })); 
+        } catch (err) {
+          console.error('[Modal] Failed to fetch error details:', err);
+          toast.error('Could not load full error details.');
+          // Keep the initially set (potentially partial) data if fetch fails
+        } finally {
+          setIsLoading(false); // Stop loading state regardless of outcome
         }
       };
-      fetchDetails();
-    } else if (!isOpen) {
-        // Reset state when modal closes
-        setIsLoading(false);
-        setDetailedError(null);
-    }
-  }, [isOpen, error?.id, session]); // Rerun if modal opens or error ID changes
-
-  // Update detailedError if the error prop itself changes while modal is open
-  // This handles cases where the underlying data in the parent might update
-  useEffect(() => {
-      if (isOpen && error) {
-          // If not loading details, update state directly from prop
-          if (!isLoading) {
-              setDetailedError(prev => ({ ...(prev ?? {}), ...error }));
-          }
+      
+      // Check if we actually need to fetch (if stack or metadata is missing)
+      // This prevents re-fetching if the initial `error` prop already had details
+      if (detailedError.stack_trace === null || detailedError.metadata === null) {
+           fetchDetails();
+      } else {
+           console.log("[Modal] Details already present, skipping fetch.");
+           setIsLoading(false); // Already have details, stop loading
       }
-  }, [error]); // Watch the error prop directly
 
-  // Use detailedError for display, fallback to original error if needed
-  const displayError = detailedError ?? error;
+    } else if (isLoading && !session) {
+         console.warn("[Modal] Cannot fetch details: No active session.");
+         toast.error("Session expired. Cannot load details.");
+         setIsLoading(false); // Stop loading if no session
+    }
+  }, [detailedError, isLoading, session, isOpen]); // Depend on detailedError, isLoading, session, isOpen
 
-  if (!displayError) {
-    return null;
-  }
-
-  // --- Data Formatting ---
-  const formattedDate = new Date(displayError.received_at).toLocaleString(undefined, {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-  });
-
-  const formatJsonOrObject = (data: any): string => {
-     if (data === null || data === undefined) return 'N/A';
-     try {
-         // If it's already a string that looks like JSON, parse then stringify for formatting
-         if (typeof data === 'string') {
-             try {
-                 return JSON.stringify(JSON.parse(data), null, 2);
-             } catch { /* Ignore parse error, treat as regular string */ }
-         }
-         // Otherwise, just stringify
-         return JSON.stringify(data, null, 2);
-     } catch (e) {
-         console.error("Error stringifying data:", e);
-         return "[Could not stringify data]";
-     }
-  }
-
-  const formattedMetadata = formatJsonOrObject(displayError.metadata);
-  const formattedRequest = formatJsonOrObject(displayError.metadata?.request); // Assuming request is nested
-
-  // --- Effects ---
+  // --- Effects (Moved Up) ---
   // Prevent background scroll
   React.useEffect(() => {
     // Check if window is defined for SSR safety
@@ -195,41 +174,75 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({
       if (isOpen) {
         document.body.style.overflow = 'hidden';
       } else {
-        document.body.style.overflow = originalOverflow;
+        // Only restore if it was previously set by this effect
+        if (document.body.style.overflow === 'hidden') {
+             document.body.style.overflow = originalOverflow;
+        }
       }
+      // Return cleanup function to restore original overflow
       return () => {
-        document.body.style.overflow = originalOverflow;
+         if (typeof window !== 'undefined') { // Check again in cleanup
+            document.body.style.overflow = originalOverflow;
+         }
       };
     }
-  }, [isOpen]);
+  }, [isOpen]); // Dependency is just isOpen
 
   // Handle Escape key press
   React.useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      // Check event.key exists
       if (event.key === 'Escape') {
         onClose();
       }
     };
+    // Only add listener if modal is open
     if (isOpen) {
       window.addEventListener('keydown', handleEscape);
-    }
-    return () => {
-      window.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen, onClose]);
+      // Return cleanup function to remove listener
+      return () => {
+        window.removeEventListener('keydown', handleEscape);
+      };
+    } 
+    // No cleanup needed if listener wasn't added
+    return undefined; 
+  }, [isOpen, onClose]); // Dependencies are isOpen and onClose
+
+  // IMPORTANT: Check if displayError is truly available AFTER all hooks
+  if (!isOpen || !detailedError) {
+    return null; 
+  }
+
+  // Now we can safely use detailedError below this point
+
+  // --- Data Formatting ---
+  const formattedDate = new Date(detailedError.received_at).toLocaleString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+  });
+
+  const formatJsonOrObject = (data: any): string => {
+     if (data === null || data === undefined) return 'N/A';
+     try {
+         if (typeof data === 'string') {
+             try { return JSON.stringify(JSON.parse(data), null, 2); } catch { /* Ignore */ }
+         }
+         return JSON.stringify(data, null, 2);
+     } catch (e) {
+         console.error("Error stringifying data:", e);
+         return "[Could not stringify data]";
+     }
+  }
+
+  const formattedMetadata = formatJsonOrObject(detailedError.metadata);
+  const formattedRequest = formatJsonOrObject(detailedError.metadata?.request);
 
   // --- Event Handlers ---
   const handleResolve = async () => {
-      console.log('Resolving error:', displayError.id);
-      // Placeholder for API call: PATCH /api/errors/{error.id}
+      console.log('Resolving error:', detailedError.id);
       try {
-          // const response = await fetch(`/api/errors/${error.id}`, { method: 'PATCH', body: JSON.stringify({ state: 'resolved' }), headers: { 'Content-Type': 'application/json' } });
-          // if (!response.ok) throw new Error('Failed to resolve');
-          // Call optimistic update handler passed from parent
-          onResolve?.(displayError.id);
+          onResolve?.(detailedError.id);
           toast.success('Error marked as resolved (simulated)');
-          onClose(); // Close modal on success
+          onClose();
       } catch (err) {
           console.error('Failed to resolve:', err);
           toast.error('Failed to mark as resolved');
@@ -237,16 +250,12 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({
   };
 
   const handleMute = async () => {
-      console.log('Muting error:', displayError.id);
-      // Placeholder for API call: PATCH /api/errors/{error.id}
+      console.log('Muting error:', detailedError.id);
       const muteUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       try {
-          // const response = await fetch(`/api/errors/${error.id}`, { method: 'PATCH', body: JSON.stringify({ mute_until: muteUntil }), headers: { 'Content-Type': 'application/json' } });
-          // if (!response.ok) throw new Error('Failed to mute');
-          // Call optimistic update handler passed from parent
-          onMute?.(displayError.id, muteUntil);
+          onMute?.(detailedError.id, muteUntil);
           toast.success('Error muted for 24h (simulated)');
-          onClose(); // Close modal on success
+          onClose();
       } catch (err) {
           console.error('Failed to mute:', err);
           toast.error('Failed to mute error');
@@ -328,12 +337,12 @@ const ErrorDetailModal: React.FC<ErrorDetailModalProps> = ({
               <div className={styles.modalBody}> {/* Tab content container */}
                   <Tabs.Content className={styles.tabsContent} value="tabStack">
                       <h3 className={styles.sectionTitle}>Message</h3>
-                      <p className={styles.messageContent}>{displayError.message}</p>
+                      <p className={styles.messageContent}>{detailedError.message}</p>
                       <h3 className={styles.sectionTitle + " mt-4"}>Stack Trace</h3>
                       {isLoading ? (
                           <p className="text-gray-400 italic">Loading stack trace...</p>
                       ) : (
-                          <CodeBlockWithCopy content={displayError.stack_trace} language="javascript" title="Stack Trace" />
+                          <CodeBlockWithCopy content={detailedError.stack_trace} language="javascript" title="Stack Trace" />
                       )}
                   </Tabs.Content>
 
