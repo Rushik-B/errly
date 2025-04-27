@@ -89,7 +89,7 @@ export async function GET(request: NextRequest, { params }: { params: { errorId:
         }
 
         // 5. Return the full error details (excluding the joined project data)
-        const { projects, ...errorDetails } = errorData; // Separate project info
+        const { projects: _unusedProjects, ...errorDetails } = errorData; // Separate project info
         return NextResponse.json(errorDetails, { status: 200, headers: corsHeaders });
 
     } catch (err: unknown) {
@@ -106,7 +106,7 @@ export async function PATCH(
   { params }: { params: { errorId: string } }
 ) {
   const errorId = params.errorId;
-  let updateData: { state?: string; muted_until?: string | null } = {};
+  const updateData: { state?: string; muted_until?: string | null } = {};
   let responseStatus = 200;
   let responseBody: any = { message: 'Error updated successfully' };
 
