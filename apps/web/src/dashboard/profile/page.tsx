@@ -521,8 +521,8 @@ export default function ProfilePage() {
           )}
           
           {/* Notification Settings Section */}
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8 p-6 border border-gray-200">
-            <h2 className="text-xl font-semibold mb-4 flex items-center">
+          <div className="bg-white/5 backdrop-blur-lg rounded-lg p-6 mb-8 border border-white/10">
+            <h2 className="text-xl font-semibold mb-4 flex items-center text-white">
                <Settings className="mr-2 h-5 w-5" /> Notification Settings
             </h2>
             <div className="flex items-center space-x-2">
@@ -530,13 +530,15 @@ export default function ProfilePage() {
                 id="phone-notifications"
                 checked={notificationsEnabled}
                 onCheckedChange={handleToggleNotifications}
-                disabled={isUpdatingNotificationPref || !profile} // Disable while updating or if profile isn't loaded
+                disabled={isUpdatingNotificationPref || !profile} 
+                // Shadcn Switch should adapt, but ensure it looks good on dark bg
               />
-              <Label htmlFor="phone-notifications" className="cursor-pointer">
-                  Enable Phone Call Notifications for New Errors
+              {/* Ensure label text is readable */}
+              <Label htmlFor="phone-notifications" className="cursor-pointer text-white/90">
+                  Enable Phone Notifications for New Errors
               </Label>
             </div>
-             {isUpdatingNotificationPref && <p className="text-sm text-gray-500 mt-2">Updating preference...</p>}
+             {isUpdatingNotificationPref && <p className="text-sm text-white/70 mt-2">Updating preference...</p>}
           </div>
           
           {/* List Existing Numbers */} 
