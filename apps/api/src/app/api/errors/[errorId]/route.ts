@@ -3,7 +3,6 @@ import { supabaseAdmin } from '../../../../lib/supabase/admin';
 import { getUserFromToken } from '../../../../lib/authUtils';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
-import { corsHeaders } from '../../../../lib/authUtils';
 
 // Initialize Supabase Admin Client (use environment variables)
 const supabaseAdminClient = createClient(
@@ -12,10 +11,14 @@ const supabaseAdminClient = createClient(
   { auth: { persistSession: false } }
 );
 
-// OPTIONS handler for preflight requests
-export async function OPTIONS(request: NextRequest) {
-    return new NextResponse(null, { status: 204, headers: corsHeaders });
-}
+// RESTORE the local CORS headers definition
+const corsHeaders = {
+    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080', 
+    // Adjust methods specifically for this route (PATCH, OPTIONS required)
+    'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS', 
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization', 
+    'Access-Control-Allow-Credentials': 'true',
+};
 
 // Define schema for URL parameters
 const paramsSchema = z.object({
