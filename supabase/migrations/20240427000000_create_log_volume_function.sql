@@ -6,7 +6,7 @@ create or replace function get_log_volume_aggregate(
     bucket_interval text -- 'minute', 'hour', 'day'
 )
 returns table (
-    timestamp timestamptz,
+    bucket_start_time timestamptz,
     level text,
     count int
 )
@@ -14,7 +14,7 @@ language sql
 stable -- Indicates the function doesn't modify the database
 as $$
   select
-    date_trunc(bucket_interval, e.received_at) as timestamp,
+    date_trunc(bucket_interval, e.received_at) as bucket_start_time,
     e.level,
     count(*)::int as count
   from

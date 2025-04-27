@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '../../../../lib/supabase/admin';
-import { getUserFromToken } from '../../../../lib/authUtils';
+import { supabaseAdmin } from '../../../../lib/supabase/admin.ts';
+import { getUserFromToken } from '../../../../lib/authUtils.ts';
 import { z } from 'zod';
 
 // Common CORS headers (adjust origin as needed)
@@ -25,14 +25,14 @@ const querySchema = z.object({
 
 // Define the expected structure from the (yet to be created) RPC function
 interface LogVolumeBucket {
-    timestamp: string; // Assuming RPC returns TIMESTAMPTZ as string
+    bucket_start_time: string; // Renamed from timestamp
     level: string;
     count: number;
 }
 
 // Define the final aggregated structure per timestamp
 interface AggregatedTimestampData {
-    timestamp: string;
+    timestamp: string; // Keep this as 'timestamp' for the final API response
     error: number;
     warn: number;
     info: number;
@@ -164,10 +164,10 @@ export async function GET(request: NextRequest) {
         // 6. Process RPC Results (Pivot data)
         const processedMap = new Map<string, AggregatedTimestampData>();
         (rpcData as LogVolumeBucket[]).forEach(row => {
-            const ts = row.timestamp;
+            const ts = row.bucket_start_time; // Use bucket_start_time from RPC result
             if (!processedMap.has(ts)) {
                 processedMap.set(ts, {
-                    timestamp: ts,
+                    timestamp: ts, // Set the final 'timestamp' field for the API response
                     error: 0,
                     warn: 0,
                     info: 0,
@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
 
         aggregatedData = Array.from(processedMap.values()).sort((a, b) => 
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        ); // Sort chronologically
+        ); // Sort chronologically (using the final 'timestamp' field)
 
         console.log(`[API GET /logs/volume] Processed ${aggregatedData.length} time buckets.`);
 
