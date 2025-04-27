@@ -25,24 +25,25 @@ import {
   BellSlashIcon,
   CalendarDaysIcon,
   ChevronDownIcon,
+  ChartBarIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { formatDistanceToNow, subHours, subDays } from 'date-fns';
-import ErrorDetailModal from '../../../ErrorModal/ErrorDetailModal.tsx';
+import { formatDistanceToNow, subHours, subDays, startOfMinute, endOfMinute, startOfHour, endOfHour, startOfDay, endOfDay, format, addHours } from 'date-fns';
+import ErrorDetailDrawer from '../../../ErrorModal/ErrorDetailDrawer.tsx';
 import { LogOut } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
-import { useDateRangeStore, DateRangePreset } from '../../../store/dateRangeStore';
+import { useDateRangeStore, DateRangePreset } from '../../../store/dateRangeStore.ts';
 import { useErrorStore, ApiError } from '../../../store/errorStore.ts';
-import { default as DatePicker } from "react-datepicker";
+import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Sparkline from '../../../components/ui/Sparkline.tsx';
+import LogVolumeChart from '../../../components/ui/LogVolumeChart.tsx';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-
-// --- START Re-inserting missing code --- 
 
 // --- Interfaces --- 
 interface Project {
@@ -55,6 +56,15 @@ interface ErrorApiResponse {
   totalCount: number;
   page: number;
   limit: number;
+}
+
+// Define the shape for the log volume data
+interface LogVolumeDataPoint {
+    timestamp: string;
+    error: number;
+    warn: number;
+    info: number;
+    log: number;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -144,29 +154,29 @@ const getLevelDetails = (level?: string): {
     case 'warn':
       return { 
         icon: ExclamationCircleIcon, 
-        borderClassName: 'border-l-yellow-500', 
-        filterColorClass: 'border-yellow-500 bg-yellow-500 hover:bg-yellow-600 text-white', 
-        filterHoverClass: 'hover:bg-yellow-600' 
+        borderClassName: 'border-l-yellow-500', // Kept yellow for consistency, but orange in chart
+        filterColorClass: 'border-yellow-500 bg-yellow-500 hover:bg-yellow-600 text-white', // Consider orange-500?
+        filterHoverClass: 'hover:bg-yellow-600' // Consider hover:bg-orange-600?
       };
-    case 'info':
+    case 'info': // Changed to Green
       return { 
         icon: InformationCircleIcon, 
+        borderClassName: 'border-l-green-500', 
+        filterColorClass: 'border-green-500 bg-green-500 hover:bg-green-600 text-white', 
+        filterHoverClass: 'hover:bg-green-600' 
+      };
+    case 'log': // Changed to Blue
+      return { 
+        icon: ChatBubbleBottomCenterTextIcon, 
         borderClassName: 'border-l-blue-500', 
         filterColorClass: 'border-blue-500 bg-blue-500 hover:bg-blue-600 text-white', 
         filterHoverClass: 'hover:bg-blue-600' 
-      };
-    case 'log':
-      return { 
-        icon: ChatBubbleBottomCenterTextIcon, 
-        borderClassName: 'border-l-purple-500', 
-        filterColorClass: 'border-purple-500 bg-purple-500 hover:bg-purple-600 text-white', 
-        filterHoverClass: 'hover:bg-purple-600' 
       };
     default: // Includes 'all' for filter and default for rows
       return { 
         icon: Bars3Icon, 
         borderClassName: 'border-l-gray-500', // Use gray for default/unknown 
-        filterColorClass: 'border-primary bg-primary hover:bg-primary/90 text-primary-foreground', 
+        filterColorClass: 'border-primary bg-primary hover:bg-primary/90 text-primary-foreground', // 'all' filter uses primary theme color
         filterHoverClass: 'hover:bg-primary/90' 
       }; 
   }
@@ -183,205 +193,88 @@ const getLevelIcon = (level?: string) => getLevelDetails(level).icon;
 // --- Filter Type --- 
 type LevelFilter = 'all' | 'error' | 'warn' | 'info' | 'log';
 
-// --- END Re-inserting missing code ---
-
 // --- START Mock Data --- 
 const MOCK_PROJECT: Project = {
   id: 'mock-project-123',
   name: 'Local Mock Project',
 };
 
-// Expanded Mock Errors (Corrected Version)
-const MOCK_ERRORS: ApiError[] = [
-  // Existing errors with added count/trend placeholders
-  {
-    id: 'err-1', message: 'TypeError: Cannot read property \'name\' of undefined',
-    received_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    stack_trace: 'at getUser (userUtils.js:15)\nat processUser (main.js:42)\nat handleRequest (server.js:110)',
-    metadata: { userId: 'abc', path: '/users/profile' }, level: 'error',
-    count: 15,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 3) }))
-  },
-  {
-    id: 'err-2', message: 'Failed to fetch resource: Network error',
-    received_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    stack_trace: null, // Null stack trace
-    metadata: { url: '/api/data', attempt: 3 }, level: 'warn',
-    count: 7,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
-  },
-  {
-    id: 'err-3', message: 'User logged in successfully',
-    received_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    stack_trace: null, // Null stack trace
-    metadata: { userId: 'xyz', source: 'loginPage' }, level: 'info',
-    count: 25,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 5) }))
-  },
-   {
-    id: 'err-4', message: 'Processing batch job #567',
-    received_at: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    stack_trace: null, // Null stack trace
-    metadata: null, // Null metadata
-    level: 'log',
-    count: 1,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: i > 20 ? 1 : 0 }))
-  },
-   {
-    id: 'err-5', message: 'Another undefined property access',
-    received_at: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
-    stack_trace: 'at getSettings (settings.js:22)\nat applyTheme (ui.js:95)',
-    metadata: { component: 'ThemeSwitcher' }, level: 'error',
-    count: 11,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
-  },
-  // New Mock Errors
-  {
-    id: 'err-6', message: 'Database connection timeout',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), // 6 hours ago
-    stack_trace: 'at connectToDb (db.js:50)\nat initialize (server.js:25)',
-    metadata: { poolSize: 10, retries: 3 }, level: 'error',
-    count: 3,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 1) }))
-  },
-  {
-    id: 'err-7', message: 'Third-party API rate limit exceeded',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(), // 8 hours ago
-    stack_trace: null, // Null stack trace
-    metadata: { api: 'external-service', limit: '100/min' }, level: 'warn',
-    count: 22,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 4) }))
-  },
-  {
-    id: 'err-8', message: 'Configuration loaded',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString(), // 10 hours ago
-    stack_trace: null, // Null stack trace
-    metadata: { environment: 'staging', version: '1.2.0' }, level: 'info',
-    count: 1,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: i < 2 ? 1 : 0 }))
-  },
-  {
-    id: 'err-9', message: 'User preference updated: dark mode enabled',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(), // 12 hours ago
-    stack_trace: null, // Null stack trace
-    metadata: { userId: 'user-456', preference: 'theme', value: 'dark' }, level: 'log',
-    count: 5,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 1) }))
-  },
-  {
-    id: 'err-10', message: 'Invalid input: age must be a positive number',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 15).toISOString(), // 15 hours ago
-    stack_trace: 'at validateAge (validation.js:88)\nat processForm (formHandler.js:30)',
-    metadata: { formId: 'signup', field: 'age', value: -5 }, level: 'warn',
-    count: 9,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
-  },
-  {
-    id: 'err-11', message: 'Security vulnerability detected: SQL injection attempt',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(), // 18 hours ago
-    stack_trace: 'at handleQuery (dbQuery.js:120)\nat processRequest (server.js:150)',
-    metadata: { input: "' OR '1'='1" }, level: 'error', // Removed severity
-    count: 2,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 1) }))
-  },
-  { // Corrected format for err-12
-    id: 'err-12',
-    message: 'Disk space running low',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(), // 20 hours ago
-    stack_trace: null, // Null stack trace
-    metadata: { available: '5GB', threshold: '10GB' },
-    level: 'warn',
-    count: 1,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: i > 20 ? 1 : 0 }))
-  },
-  {
-    id: 'err-13', message: 'Cache cleared successfully',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(), // 22 hours ago
-    stack_trace: null, // Null stack trace
-    metadata: null, // Null metadata
-    level: 'info',
-    count: 1,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: i === 2 ? 1 : 0 }))
-  },
-  {
-    id: 'err-14', message: 'Fallback initiated for external service',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString(), // 23 hours ago
-    stack_trace: 'at fallbackService (utils.js:200)', // Has stack trace
-    metadata: null, // Null metadata
-    level: 'warn',
-    count: 4,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 1) }))
-  },
-  {
-    id: 'err-15', message: 'User session started',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-    stack_trace: null, // Null stack trace
-    metadata: { sessionId: 'session-789', ip: '192.168.1.100' }, level: 'log',
-    count: 18,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 3) }))
-  },
-  // --- Added complex stack trace errors ---
-  {
-    id: 'err-16', message: 'Complex async operation failed: timeout',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    stack_trace:
-`TimeoutError: Operation timed out after 30000ms
-    at Timeout.<anonymous> (/app/node_modules/some-async-lib/dist/timeout.js:89:13)
-    at listOnTimeout (node:internal/timers:569:17)
-    at processTimers (node:internal/timers:512:7)
-    at async processUserData (/app/src/services/userProcessor.ts:152:9)
-    at async handleUserRequest (/app/src/controllers/userController.js:45:18)
-    at async /app/node_modules/express/lib/router/layer.js:95:5
-    at async runMicrotasks (<anonymous>)
-    at async processTicksAndRejections (node:internal/process/task_queues:96:5)`,
-    metadata: { operation: 'processUserData', timeout: 30000 }, level: 'error',
-    count: 6,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
-  },
-  {
-    id: 'err-17', message: 'Null reference in deeply nested object',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
-    stack_trace:
-`TypeError: Cannot read properties of null (reading 'address')
-    at getFullAddress (./src/utils/addressFormatter.js:25:45)
-    at formatUserProfile (./src/components/UserProfileCard.jsx:112:28)
-    at renderUserProfile (./src/pages/ProfilePage.tsx:55:15)
-    at renderWithLayout (./src/layout/MainLayout.js:30:10)
-    at PageComponent.render (/app/node_modules/react-dom/cjs/react-dom-server.node.development.js:4390:14)
-    at PageComponent.read (/app/node_modules/react-dom/cjs/react-dom-server.node.development.js:4312:29)
-    at renderToString (react-dom-server.node.development.js:4730:27)`,
-    metadata: { component: 'UserProfileCard', attemptedProperty: 'address' }, level: 'error',
-    count: 19,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 3) }))
-  },
-  {
-    id: 'err-18', message: 'Warning: Deprecated API usage',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 9).toISOString(), // 9 hours ago
-    stack_trace:
-`Warning: Function 'old_calculate_metrics' is deprecated. Use 'new_metric_calculator' instead.
-    at calculateDashboardData (/app/src/dashboard/dataProcessor.js:78:9)
-    at generateReport (/app/src/reporting/reportGenerator.ts:120:18)
-    at scheduledTaskRunner (/app/src/scheduler/tasks.js:42:5)`, // Shorter but still multi-line
-    metadata: { deprecatedFunction: 'old_calculate_metrics', suggested: 'new_metric_calculator' }, level: 'warn',
-    count: 30,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 4) }))
-  },
-  {
-    id: 'err-19', message: 'Unhandled promise rejection',
-    received_at: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(), // 14 hours ago
-    stack_trace:
-`UnhandledPromiseRejectionWarning: Error: Could not connect to payment gateway
-    at PaymentProcessor.process (/app/src/payment/processor.js:115:19)
-    at async processOrder (/app/src/controllers/orderController.ts:210:7)
-    at async /app/node_modules/koa-router/lib/layer.js:83:32
-    (Use \`node --trace-warnings ...\` to show where the warning was created)
-(node:12345) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). To terminate the node process on unhandled promise rejection, use the CLI flag \`--unhandled-rejections=strict\` (see https://nodejs.org/api/cli.html#cli_unhandled_rejections_mode). (rejection id: 1)`,
-    metadata: { orderId: 'order-987', gateway: 'stripe' }, level: 'error',
-    count: 8,
-    trend: Array.from({ length: 24 }, (_, i) => ({ time: `T${i}`, count: Math.floor(Math.random() * 2) }))
-  }
-  // --- End complex stack trace errors ---
-];
+// --- Generate Mock Data (Revised Strategy) ---
+const mockDataStartDate = subDays(new Date(), 30);
+const totalHours = 30 * 24;
+const mockDataPoints: { timestamp: string; errorCount: number; warnCount: number; infoCount: number; logCount: number }[] = [];
+const generatedMockErrors: ApiError[] = [];
+
+// 1. Generate hourly volume data points first
+for (let i = 0; i < totalHours; i++) {
+  const timestampDate = addHours(mockDataStartDate, i);
+  const timestamp = timestampDate.toISOString();
+  const errorCount = Math.random() < 0.1 ? Math.floor(Math.random() * 3) + 1 : 0; // ~10% chance of errors
+  const warnCount = Math.random() < 0.2 ? Math.floor(Math.random() * 5) + 1 : 0; // ~20% chance of warnings
+  const infoCount = Math.floor(Math.random() * 20);
+  const logCount = Math.floor(Math.random() * 40);
+
+  mockDataPoints.push({
+    timestamp,
+    error: errorCount,
+    warn: warnCount,
+    info: infoCount,
+    log: logCount
+  });
+
+  // 2. Generate corresponding mock errors based on the counts for this hour
+  const createMockError = (level: 'error' | 'warn' | 'info' | 'log', index: number) => {
+    // Select a random template message based on level
+    let message = `Generic ${level} message ${index}`;
+    let metadata: any = { generatedHour: timestampDate.getHours() };
+    let stackTrace: string | null = null;
+    switch (level) {
+        case 'error': 
+            message = ['TypeError: x is undefined', 'Database timeout', 'NullReferenceException'][Math.floor(Math.random() * 3)];
+            metadata = { userId: `usr_${index}`, path: '/mock/path' };
+            stackTrace = `at mockFunction (mockFile.js:${Math.floor(10 + Math.random() * 90)})\nat main (server.js:42)`;
+            break;
+        case 'warn':
+            message = ['Deprecated API used', 'Rate limit approaching', 'High memory usage'][Math.floor(Math.random() * 3)];
+            metadata = { api: 'mockApi', usage: Math.random() };
+            break;
+        case 'info':
+            message = ['User logged in', 'Configuration loaded', 'Cache cleared'][Math.floor(Math.random() * 3)];
+            metadata = { user: `user_${index}`, action: 'login' };
+            break;
+        case 'log':
+             message = ['Processing job', 'Request received', 'Data synced'][Math.floor(Math.random() * 3)];
+            metadata = { jobId: `job_${index}` };
+            break;
+    }
+    return {
+        id: `mock-${level}-${i}-${index}`,
+        message: `${message} (${index + 1})`,
+        received_at: new Date(timestampDate.getTime() + Math.random() * 3600000).toISOString(), // Add random offset within the hour
+        level,
+        metadata,
+        stack_trace: stackTrace,
+        // Generate simple fake trend data for visual testing
+        count: Math.floor(1 + Math.random() * 20), // Give it a random count > 0
+        trend: Array.from({ length: 24 }, (_, k) => ({ 
+            time: `T${k}`, // Mock time bucket label
+            count: Math.floor(Math.random() * (level === 'error' || level === 'warn' ? 5 : 3)) // Generate random counts
+        })) 
+    };
+  };
+
+  for (let j = 0; j < errorCount; j++) generatedMockErrors.push(createMockError('error', j));
+  for (let j = 0; j < warnCount; j++) generatedMockErrors.push(createMockError('warn', j));
+  for (let j = 0; j < infoCount; j++) generatedMockErrors.push(createMockError('info', j));
+  for (let j = 0; j < logCount; j++) generatedMockErrors.push(createMockError('log', j));
+
+}
+
+// Assign the generated data to the constants used by the component
+const MOCK_LOG_VOLUME_DATA: ChartDataPoint[] = mockDataPoints; 
+const MOCK_ERRORS: ApiError[] = generatedMockErrors.sort((a, b) => 
+    new Date(b.received_at).getTime() - new Date(a.received_at).getTime()
+); // Sort errors newest first for initial display
 
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 // --- END Mock Data ---
@@ -419,8 +312,20 @@ export default function ProjectErrorsPage() {
 
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
 
+  // Add state for log volume data
+  const [logVolumeData, setLogVolumeData] = useState<LogVolumeDataPoint[]>([]);
+  const [loadingLogVolume, setLoadingLogVolume] = useState(true);
+  const [logVolumeError, setLogVolumeError] = useState<string | null>(null);
+
   // Get date range state from Zustand store
   const { preset, customStartDate, customEndDate, setPreset, setCustomRange } = useDateRangeStore();
+
+  // Add state for chart visibility
+  const [isChartVisible, setIsChartVisible] = useState(true);
+
+  // Add state for chart click filtering
+  const [selectedTimestamp, setSelectedTimestamp] = useState<string | null>(null);
+  const [chartBucketInterval, setChartBucketInterval] = useState<string | null>(null);
 
   // --- Effects (Authentication, Data Fetch, Realtime) --- 
   // Redirect if auth finished loading and there's no user (Bypass if mocking)
@@ -434,83 +339,177 @@ export default function ProjectErrorsPage() {
     }
   }, [loadingAuth, authUser, navigate, location.pathname, location.search]); // Removed USE_MOCK_DATA from deps
 
-  // Fetch project details and errors (or use mock data)
+  // Fetch project details, errors, AND log volume (or use mock data)
   useEffect(() => {
-    if (USE_MOCK_DATA) {
-        console.log('[Mock Data] Using mock data for project and errors.');
-        setProject(MOCK_PROJECT);
-        setErrors(MOCK_ERRORS, MOCK_ERRORS.length);
-        setLoading(false);
-        setFetchError(null);
-        setCurrentPage(1); // Reset page for mock data
-        return; // Skip real fetch
+    // --- Calculate Date Range --- 
+    // Moved date calculation outside the if/else block
+    let startDate: Date | undefined;
+    let endDate: Date | undefined = new Date(); // Default end date is now
+    const now = new Date();
+
+    switch (preset) {
+      case '1h':
+        startDate = subHours(now, 1);
+        break;
+      case '7d':
+        startDate = subDays(now, 7);
+        break;
+      case 'custom':
+        startDate = customStartDate ?? undefined; 
+        endDate = customEndDate ?? new Date(); 
+        break;
+      case '24h':
+      default:
+        startDate = subDays(now, 1);
+        break;
     }
-      
+
+    // Exit early if the date range is invalid
+    if (!startDate) {
+        console.warn("Start date is undefined, cannot fetch or filter data.");
+        setLoading(false);
+        setLoadingLogVolume(false);
+        setFetchError("Invalid date range specified.");
+        setLogVolumeError("Invalid date range specified.");
+        setErrors([], 0); // Clear data if range is invalid
+        setLogVolumeData([]);
+        return; 
+    }
+    // --- End Date Calculation ---
+
+    // --- Handle Mock Data --- 
+    if (USE_MOCK_DATA) {
+        console.log('[Mock Data] Applying filters to mock data for range:', startDate, endDate);
+        const startMs = startDate.getTime();
+        const endMs = endDate.getTime(); // Use exclusive end for filtering now
+
+        // Filter mock errors
+        const filteredMockErrors = MOCK_ERRORS.filter(error => {
+            const errorTime = new Date(error.received_at).getTime();
+            return errorTime >= startMs && errorTime < endMs; // Use < endMs
+        });
+
+        // Filter mock volume data
+        const filteredMockVolume = MOCK_LOG_VOLUME_DATA.filter(point => {
+            const pointTime = new Date(point.timestamp).getTime();
+            return pointTime >= startMs && pointTime < endMs; // Use < endMs
+        });
+        
+        console.log(`[Mock Data] Filtered Errors: ${filteredMockErrors.length}, Filtered Volume: ${filteredMockVolume.length}`);
+
+        // Set state with filtered mock data
+        setProject(MOCK_PROJECT);
+        setErrors(filteredMockErrors, filteredMockErrors.length);
+        setLogVolumeData(filteredMockVolume);
+        setChartBucketInterval('hour'); // Keep mock interval as hour for simplicity
+        setLoading(false);
+        setLoadingLogVolume(false);
+        setFetchError(null);
+        setLogVolumeError(null);
+        setCurrentPage(1); // Reset page
+        setSelectedTimestamp(null); // Reset time selection
+    }
+    // --- Handle Real API Fetching --- 
+    else {
     // Original fetch logic (only runs if USE_MOCK_DATA is false)
     if (loadingAuth || !session || !projectId) {
       setLoading(loadingAuth);
+          setLoadingLogVolume(loadingAuth);
       if (!loadingAuth && !session) {
           setProject(null);
           setErrors([], 0);
+              setLogVolumeData([]);
           setFetchError('No active session found.');
+              setLogVolumeError('No active session found.');
           setLoading(false);
+              setLoadingLogVolume(false);
+              setChartBucketInterval(null);
       }
       return; 
     }
 
     const fetchData = async () => {
-      // Calculate start and end dates based on the preset
-      let startDate: string | undefined;
-      let endDate: string | undefined;
-
-      const now = new Date();
-      switch (preset) {
-        case '1h':
-          startDate = subHours(now, 1).toISOString();
-          break;
-        case '7d':
-          startDate = subDays(now, 7).toISOString();
-          break;
-        case 'custom':
-          startDate = customStartDate?.toISOString();
-          endDate = customEndDate?.toISOString();
-          break;
-        case '24h': // Default included here
-        default:
-          startDate = subDays(now, 1).toISOString();
-          break;
-      }
+          // Convert dates to ISO strings for API calls
+          const startDateISO = startDate!.toISOString(); // Use non-null assertion as we checked above
+          const endDateISO = endDate!.toISOString();
 
       setLoading(true);
+          setLoadingLogVolume(true);
       setFetchError(null);
+          setLogVolumeError(null);
+
       try {
-        const projectDetails = await fetchWithErrorHandling(
+              console.log(`Fetching data for range: ${startDateISO} to ${endDateISO}`);
+              const [projectDetails, errorsResponse, volumeApiResponse] = await Promise.all([
+                  // Fetch Project Details
+                  fetchWithErrorHandling(
             `${API_BASE_URL}/api/projects/${projectId}`, 
             { }, 
             session.access_token
-        );
-        setProject(projectDetails);
-
-        const errorsResponse: ErrorApiResponse = await fetchWithErrorHandling(
+                  ),
+                  // Fetch Errors
+                  fetchWithErrorHandling(
             `${API_BASE_URL}/api/errors?projectId=${projectId}&page=${currentPage}&limit=${limit}` +
-            `${startDate ? `&startDate=${encodeURIComponent(startDate)}` : ''}` +
-            `${endDate ? `&endDate=${encodeURIComponent(endDate)}` : ''}`,
+                      `&startDate=${encodeURIComponent(startDateISO)}` +
+                      `&endDate=${encodeURIComponent(endDateISO)}`, 
             { }, 
             session.access_token
-        );
-        setErrors(errorsResponse.data, errorsResponse.totalCount);
+                  ),
+                  // Fetch Log Volume
+                  fetchWithErrorHandling(
+                      `${API_BASE_URL}/api/logs/volume?projectId=${projectId}` +
+                      `&startDate=${encodeURIComponent(startDateISO)}` +
+                      `&endDate=${encodeURIComponent(endDateISO)}`, 
+                      { }, 
+                      session.access_token
+                  )
+              ]);
 
+              // Process results
+              setProject(projectDetails);
+              setErrors(errorsResponse.data, errorsResponse.totalCount);
+              if (volumeApiResponse && typeof volumeApiResponse === 'object' && Array.isArray(volumeApiResponse.data) && typeof volumeApiResponse.interval === 'string') {
+                  setLogVolumeData(volumeApiResponse.data as LogVolumeDataPoint[]);
+                  setChartBucketInterval(volumeApiResponse.interval);
+                  console.log(`Fetched log volume data points: ${volumeApiResponse.data.length}, Interval: ${volumeApiResponse.interval}`);
+              } else {
+                  console.warn("Log volume API response format unexpected:", volumeApiResponse);
+                  setLogVolumeData([]);
+                  setChartBucketInterval(null);
+                  setLogVolumeError("Received unexpected data format for chart.");
+              }
+              setSelectedTimestamp(null);
       } catch (err: any) {
-        console.error('Error fetching project data or errors:', err);
-        setFetchError(err.message || 'Failed to load data.');
-        if (err.message?.includes('Unauthorized') || err.message?.includes('401')) { /* Handle 401 if needed */ }
+              console.error('Error fetching data:', err);
+              const errorMsg = err.message || 'Failed to load data.';
+              setFetchError(errorMsg);
+              setLogVolumeError(errorMsg);
+              setChartBucketInterval(null);
+              setSelectedTimestamp(null);
+              if (err.message?.includes('Unauthorized') || err.message?.includes('401')) { /* Handle 401 */ }
       } finally {
         setLoading(false);
+              setLoadingLogVolume(false);
       }
     };
 
     fetchData();
-  }, [loadingAuth, session, projectId, currentPage, limit, API_BASE_URL, navigate, USE_MOCK_DATA, preset, customStartDate, customEndDate]); // Added USE_MOCK_DATA, preset, customStartDate, customEndDate to deps
+    }
+  }, [
+      // Keep all dependencies that affect date calculation or trigger fetches
+      loadingAuth, 
+      session, 
+      projectId, 
+      currentPage, 
+      limit, 
+      API_BASE_URL, 
+      navigate, 
+      USE_MOCK_DATA, 
+      preset, 
+      customStartDate, 
+      customEndDate, 
+      setErrors // Keep dependencies used inside the hook
+  ]);
 
   // Update temporary dates if global custom range changes
   useEffect(() => {
@@ -546,9 +545,11 @@ export default function ProjectErrorsPage() {
   // --- Memoized Derived State --- 
   const filteredErrors = useMemo(() => {
     let tempErrors = errors;
+    // Apply Level Filter FIRST (before time bucket potentially reduces the set)
     if (levelFilter !== 'all') {
         tempErrors = tempErrors.filter(error => error.level?.toLowerCase() === levelFilter);
     }
+    // Apply Search Filter SECOND
     if (debouncedSearchTerm) {
         const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
         tempErrors = tempErrors.filter(error => 
@@ -559,7 +560,60 @@ export default function ProjectErrorsPage() {
   }, [errors, debouncedSearchTerm, levelFilter]); 
 
   const sortedAndFilteredErrors = useMemo(() => {
-      let items = [...filteredErrors]; 
+      console.log('[useMemo] Recalculating sortedAndFilteredErrors...', { selectedTimestamp, chartBucketInterval, filteredErrorsLength: filteredErrors.length });
+      let items = filteredErrors; // Start with level/search filtered errors
+
+      // --- Apply Time Bucket Filter (if timestamp is selected) --- 
+      if (selectedTimestamp && chartBucketInterval) {
+          console.log(`[useMemo] Applying time filter for ${selectedTimestamp} (${chartBucketInterval})`);
+          try {
+              const clickedDate = new Date(selectedTimestamp);
+              let bucketStart: Date;
+              let bucketEnd: Date;
+
+              // Calculate bucket start/end based on interval
+              if (chartBucketInterval === 'minute') {
+                  bucketStart = startOfMinute(clickedDate);
+                  bucketEnd = endOfMinute(clickedDate);
+              } else if (chartBucketInterval === 'hour') {
+                  bucketStart = startOfHour(clickedDate);
+                  bucketEnd = endOfHour(clickedDate);
+              } else if (chartBucketInterval === 'day') {
+                  bucketStart = startOfDay(clickedDate);
+                  bucketEnd = endOfDay(clickedDate);
+              } else {
+                  console.warn("[useMemo] Unknown chart bucket interval:", chartBucketInterval);
+                  bucketStart = clickedDate; 
+                  bucketEnd = clickedDate;
+              }
+
+              const bucketStartMs = bucketStart.getTime();
+              const bucketEndMs = bucketEnd.getTime() + 1; 
+
+              console.log(`[useMemo] Filtering errors for bucket: ${bucketStart.toISOString()} (${bucketStartMs}) to ${new Date(bucketEndMs).toISOString()} (${bucketEndMs})`);
+
+              const initialLength = items.length;
+              items = items.filter(error => {
+                  const errorTime = new Date(error.received_at).getTime();
+                  const isInBucket = errorTime >= bucketStartMs && errorTime < bucketEndMs;
+                  // Add detailed log for the first few items to check comparison
+                  // if (items.indexOf(error) < 5) { 
+                  //    console.log(`  Checking error ${error.id} (${error.received_at}): time=${errorTime}, inBucket=${isInBucket}`);
+                  // }
+                  return isInBucket;
+              });
+              console.log(`[useMemo] Items after time filter: ${items.length} (from ${initialLength})`);
+
+          } catch (e) {
+              console.error("[useMemo] Error filtering by selected timestamp:", e);
+          }
+      }
+      // --- End Time Bucket Filter --- 
+
+      // --- Apply Sorting --- 
+      console.log(`[useMemo] Sorting ${items.length} items by ${sortKey} ${sortDirection}...`);
+      // Make a copy before sorting if the original array reference is needed elsewhere, but here it should be fine.
+      // let sortedItems = [...items]; 
       items.sort((a, b) => {
           let valA: number | string, valB: number | string;
           if (sortKey === 'received_at') {
@@ -569,18 +623,17 @@ export default function ProjectErrorsPage() {
               valA = a.message.toLowerCase();
               valB = b.message.toLowerCase();
           } else if (sortKey === 'count') {
-              // Handle potential undefined counts, treating them as 0 for sorting
               valA = a.count ?? 0;
               valB = b.count ?? 0;
           } else { return 0; }
 
-          // Comparison logic (handles both numbers and strings)
           if (valA < valB) { return sortDirection === 'asc' ? -1 : 1; }
           if (valA > valB) { return sortDirection === 'asc' ? 1 : -1; }
           return 0;
       });
+      console.log('[useMemo] Finished recalculating.');
       return items;
-  }, [filteredErrors, sortKey, sortDirection]);
+  }, [filteredErrors, sortKey, sortDirection, selectedTimestamp, chartBucketInterval]); // Depend on pre-filtered errors
 
   const totalPages = useMemo(() => Math.ceil(totalCount / limit), [totalCount, limit]);
 
@@ -617,6 +670,24 @@ export default function ProjectErrorsPage() {
       if (sortKey !== key) return null;
       const Icon = sortDirection === 'asc' ? ArrowUpIcon : ArrowDownIcon;
       return <Icon className="ml-1 h-4 w-4 text-gray-500" />; // Adjusted class
+  };
+
+  // Handler to toggle chart visibility
+  const toggleChartVisibility = () => {
+    setIsChartVisible(prev => !prev);
+  };
+
+  // Handler for clicking a bar on the chart
+  const handleBarClick = (timestamp: string | null) => {
+    console.log('[ProjectErrorsPage] handleBarClick called with timestamp:', timestamp);
+    // If clicking the already selected timestamp, clear it
+    if (selectedTimestamp === timestamp) {
+        console.log('[ProjectErrorsPage] Clearing selected timestamp.');
+        setSelectedTimestamp(null); 
+    } else {
+        console.log('[ProjectErrorsPage] Setting selected timestamp:', timestamp);
+        setSelectedTimestamp(timestamp);
+    }
   };
 
   // --- Helper for Stack Preview ---
@@ -665,20 +736,31 @@ export default function ProjectErrorsPage() {
 
          {/* Filters Row */}
          <div className="flex flex-wrap items-center gap-4 justify-between"> 
-           {/* Left Side: Search ONLY */}
+           {/* Left Side: Search + Chart Toggle */}
            <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
               {/* Search Input */}
-              <div className="relative flex-1 md:grow-0 min-w-[200px]"> 
+              <div className="relative md:grow-0 min-w-[200px]"> 
                  <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
                  <Input
                    type="search"
                    placeholder="Filter by message…"
                    value={searchTerm}
-                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm((e.target as HTMLInputElement).value)}
+                   onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                    className="w-full rounded-full border border-white/10 bg-white/5 pl-10 pr-3 py-1.5 text-gray-200 placeholder-gray-500 backdrop-blur-md md:w-[240px] lg:w-[320px]"
                  />
               </div>
-              {/* Date Range Dropdown - MOVED TO RIGHT SIDE */}
+              {/* --- Re-added Chart Toggle Button --- */} 
+              <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={toggleChartVisibility}
+                 title={isChartVisible ? "Hide Volume Chart" : "Show Volume Chart"}
+                 className={`flex items-center gap-1 rounded-full border-white/10 px-3 py-1 text-xs uppercase tracking-wide backdrop-blur-md transition hover:bg-white/10 ${isChartVisible ? 'bg-white/10 text-gray-100' : 'bg-white/5 text-gray-300'}`}
+              >
+                 <EyeIcon className="h-4 w-4" /> {/* Use EyeIcon */} 
+                 <span>Chart</span>
+              </Button>
+              {/* --- End Chart Toggle Button --- */} 
             </div>
 
            {/* Right Side: Level Filters + Date Range */}
@@ -755,6 +837,38 @@ export default function ProjectErrorsPage() {
            </div>
          </div>
 
+         {/* --- Log Volume Chart (Conditionally Rendered) --- */} 
+         {isChartVisible && (
+             <div className="mt-0 mb-0"> 
+                <LogVolumeChart 
+                   data={logVolumeData}
+                   isLoading={loadingLogVolume}
+                   error={logVolumeError}
+                   onBarClick={handleBarClick} // Pass the handler
+                />
+             </div>
+         )}
+         {/* --- End Log Volume Chart --- */} 
+
+          {/* --- Filtering Indicator --- */} 
+         {selectedTimestamp && chartBucketInterval && (
+             <div className="my-2 flex items-center justify-between rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-sm text-blue-200 backdrop-blur-sm">
+                 <span className="font-medium">
+                     Showing events for time bucket: {format(new Date(selectedTimestamp), 'MMM d, HH:mm')} ({chartBucketInterval})
+                 </span>
+                 <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedTimestamp(null)} // Clear selection
+                    className="-mr-1 h-6 px-2 text-blue-200 hover:bg-blue-500/20 hover:text-blue-100"
+                    title="Clear time selection"
+                 >
+                    <XMarkIcon className="h-4 w-4" />
+                 </Button>
+             </div>
+         )}
+         {/* --- End Filtering Indicator --- */} 
+
          {/* Loading & Error States (as defined before) */}
          {loading && (
           <div className="flex items-center justify-center py-12">
@@ -776,39 +890,47 @@ export default function ProjectErrorsPage() {
               <div className="overflow-x-auto">
                 {/* Use table-auto for flexible columns, min-w-full still useful */}
                 <table className="min-w-full table-auto divide-y divide-white/10 text-sm">
-                  {/* Adjusted colgroup: Removed Stack Preview column width */}
-                  <colgroup><col className="w-[40px]" /><col className="w-[40%]" /><col className="w-[90px]" /><col className="w-[80px]" /><col className="w-[25%]" /><col className="w-[110px]" /><col className="w-[70px]" /></colgroup>
+                  {/* Adjusted colgroup for new column order and widths */}
+                  <colgroup>
+                    <col className="w-[40px]" /> {/* Level Icon */} 
+                    <col className="w-[130px]" /> {/* Received */} 
+                    <col className="w-[35%]" /> {/* Message */} 
+                    <col className="w-[90px]" /> {/* Sparkline */} 
+                    <col className="w-[90px]" /> {/* Hits (Increased) */} 
+                    <col className="w-[18%]" /> {/* Metadata (Decreased) */} 
+                    <col className="w-[70px]" /> {/* Actions */} 
+                  </colgroup>
                   <thead className="bg-white/5">
                     <tr>
                       {/* Level Icon - No Header Text */}
                       <th scope="col" className="px-2 py-3 text-left font-semibold tracking-wider text-gray-400">
                         <span className="sr-only">Level</span>
                       </th>
+                      {/* Received (Moved Here) */}
+                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
+                        <Button variant="ghost" size="sm" onClick={() => handleSort('received_at')} className="-ml-2 h-8 rounded-md px-2 text-gray-400 hover:bg-gray-500/20">
+                          Received {renderSortIcon('received_at')}
+                        </Button>
+                      </th>
                       {/* Message */}
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
-                        <Button variant="ghost" size="sm" onClick={() => handleSort('message')} className="-ml-2 h-8 text-gray-400 hover:text-gray-200 p-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleSort('message')} className="-ml-2 h-8 rounded-md px-2 text-gray-400 hover:bg-gray-500/20">
                           Message {renderSortIcon('message')}
                         </Button>
                       </th>
-                      {/* Sparkline */}
+                      {/* Sparkline - Balanced padding */}
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
                         Trend
                       </th>
-                      {/* Hits */}
-                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
-                        <Button variant="ghost" size="sm" onClick={() => handleSort('count')} className="-ml-2 h-8 text-gray-400 hover:text-gray-200 p-1">
+                      {/* Hits - Balanced padding, centered */}
+                      <th scope="col" className="px-3 py-3 text-center font-semibold tracking-wider text-gray-400">
+                        <Button variant="ghost" size="sm" onClick={() => handleSort('count')} className="h-8 rounded-md px-2 text-gray-400 hover:bg-gray-500/20">
                           Hits {renderSortIcon('count')}
                         </Button>
                       </th>
-                      {/* Metadata */}
+                      {/* Metadata - Balanced padding */}
                       <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
                         Metadata
-                      </th>
-                      {/* Received */}
-                      <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
-                        <Button variant="ghost" size="sm" onClick={() => handleSort('received_at')} className="-ml-2 h-8 text-gray-400 hover:text-gray-200">
-                          Received {renderSortIcon('received_at')}
-                        </Button>
                       </th>
                       {/* Actions - No Header Text */}
                        <th scope="col" className="px-3 py-3 text-left font-semibold tracking-wider text-gray-400">
@@ -820,51 +942,60 @@ export default function ProjectErrorsPage() {
                     {sortedAndFilteredErrors.length > 0 ? (
                       sortedAndFilteredErrors.map((error, index) => {
                         const LevelIcon = getLevelIcon(error.level);
-                        const levelBorderClass = getLevelRowBorderClassName(error.level); // Get specific border class
- 
-                        // TODO: Replace with actual aggregated data from API/Store
-                        const mockSparklineData = Array.from({ length: 24 }, () => Math.random() * 10 + 1);
+                        const levelBorderClass = getLevelRowBorderClassName(error.level);
+                        const hasMeaningfulTrend = error.trend && error.trend.filter(t => t.count > 0).length > 1;
+
+                        // Format timestamp as requested
+                        let formattedReceivedAt = "Invalid Date";
+                        try {
+                            formattedReceivedAt = format(new Date(error.received_at), 'd MMM HH:mm:ss');
+                        } catch (e) { 
+                            console.error("Failed to format date:", error.received_at, e);
+                        }
 
                         return (
                           <tr
                             key={error.id}
-                            onClick={() => handleRowClick(error)} // Restore row click to open modal
-                            // Apply specific border class and add generic hover class
+                            onClick={() => handleRowClick(error)}
                             className={`group relative cursor-pointer border-l-4 ${levelBorderClass} hover:bg-white/5 border-b border-white/5 transition-all duration-150 ${error.state === 'resolved' ? 'opacity-40 pointer-events-none' : ''}`}
                           >
                             {/* Level Icon */}
                             <td className="px-2 py-3 align-top">
                               <LevelIcon className="mt-0.5 h-4 w-4 shrink-0" title={error.level} />
                             </td>
-                            {/* Message (flex=3, truncate, tooltip) */}
+                            {/* Received (Moved Here, Formatted) */}
+                            <td className="whitespace-nowrap px-3 py-3 align-top text-gray-400 font-mono text-xs" title={new Date(error.received_at).toISOString()}>
+                              {formattedReceivedAt}
+                            </td>
+                            {/* Message (Truncate) */}
                             <td className="px-3 py-3 align-top text-gray-100">
                               <div className="truncate" title={error.message}>
                                 {error.message}
                               </div>
                             </td>
-                            {/* Sparkline (Placeholder) */}
-                            <td className="px-3 py-3 align-middle"> {/* Use align-middle */} 
+                            {/* Sparkline - Balanced padding */}
+                            <td className="px-3 py-3 align-middle">
+                              {hasMeaningfulTrend ? (
                                 <Sparkline 
                                   data={error.trend?.map(t => t.count) ?? []} 
                                   height={24} 
                                   width={90} 
                                 />
+                              ) : (
+                                <div className="h-[24px] w-[90px]"></div>
+                              )}
                             </td>
-                            {/* Hits (Display aggregated count) */}
+                            {/* Hits - Balanced padding, centered */}
                             <td className="px-3 py-3 text-center align-top font-medium text-gray-200">
                               {error.count ?? '-'}
                             </td>
-                            {/* Metadata (flex=2, truncate, tooltip) */}
+                            {/* Metadata - Balanced padding */}
                             <td className="px-3 py-3 align-top font-mono text-gray-400">
                               <div className="truncate" title={typeof error.metadata === 'string' ? error.metadata : JSON.stringify(error.metadata)}> 
-                                {formatMetadata(error.metadata, 50)} {/* Reduced maxLength */} 
+                                {formatMetadata(error.metadata, 50)}
                               </div>
                             </td>
-                            {/* Received (120px, relative, tooltip) */}
-                            <td className="whitespace-nowrap px-3 py-3 align-top text-gray-400" title={new Date(error.received_at).toISOString()}>
-                              {formatDistanceToNow(new Date(error.received_at), { addSuffix: true })}
-                            </td>
-                             {/* Quick Actions (Appears on hover) */}
+                             {/* Quick Actions */}
                             <td className="px-3 py-3 align-top">
                                <div className="absolute right-2 top-1/2 flex -translate-y-1/2 transform items-center space-x-1 rounded-full bg-black/50 p-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                                  <button
@@ -888,9 +1019,11 @@ export default function ProjectErrorsPage() {
                       })
                     ) : (
                       <tr>
-                        {/* Updated colSpan to match new column count */}
+                        {/* Updated colSpan to match new column count (still 7) */}
                         <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
-                          {searchTerm || levelFilter !== 'all' ? 'No errors match your filter.' : 'No errors found for this project yet.'}
+                          {searchTerm || levelFilter !== 'all' || preset !== '24h' 
+                            ? 'No errors match your current filters or time range.' 
+                            : 'No errors found for this project in the last 24 hours.'}
                         </td>
                       </tr>
                     )}
@@ -922,29 +1055,63 @@ export default function ProjectErrorsPage() {
        {/* Custom Date Range Picker Modal */}
        {isDatePickerOpen && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-           <div className="rounded-lg bg-gray-800 p-6 shadow-xl border border-white/10 w-full max-w-md text-gray-200">
+           {/* Use bg-black for the modal background */}
+           <div className="rounded-lg bg-black p-6 shadow-xl border border-gray-700/50 w-full max-w-md text-gray-200"> 
              <h3 className="text-lg font-medium mb-4">Select Custom Date Range</h3>
              <div className="space-y-4">
                  <div>
                    <label className="block text-sm font-medium text-gray-400 mb-1">Start Date</label>
-                   <div className="w-full rounded-md border border-dashed border-white/20 bg-white/5 px-3 py-1.5 text-gray-400 h-[38px] flex items-center">DatePicker commented out</div>
+                   {/* Re-enabled DatePicker with dark theme styling */}
+                   <DatePicker
+                     selected={tempStartDate}
+                     onChange={(date: Date | null) => setTempStartDate(date)}
+                     selectsStart
+                     startDate={tempStartDate}
+                     endDate={tempEndDate}
+                     dateFormat="MMM d, yyyy"
+                     className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                     popperPlacement="bottom-start"
+                   />
                  </div>
                  <div>
                    <label className="block text-sm font-medium text-gray-400 mb-1">End Date</label>
-                   <div className="w-full rounded-md border border-dashed border-white/20 bg-white/5 px-3 py-1.5 text-gray-400 h-[38px] flex items-center">DatePicker commented out</div>
+                   {/* Re-enabled DatePicker with dark theme styling */}
+                   <DatePicker
+                     selected={tempEndDate}
+                     onChange={(date: Date | null) => setTempEndDate(date)}
+                     selectsEnd
+                     startDate={tempStartDate}
+                     endDate={tempEndDate}
+                     minDate={tempStartDate}
+                     dateFormat="MMM d, yyyy"
+                     className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                     popperPlacement="bottom-start"
+                   />
                  </div>
              </div>
              <div className="mt-6 flex justify-end gap-3">
-               <Button variant="outline" size="sm" onClick={() => setIsDatePickerOpen(false)} className="bg-gray-600 hover:bg-gray-500 border-gray-500 text-gray-200">
+               {/* Updated Cancel button style (Matches Hero Secondary) */}
+               <Button 
+                 variant="outline" // Keep variant for structure, override styles below
+                 size="sm" 
+                 onClick={() => setIsDatePickerOpen(false)} 
+                 className="rounded-full bg-white/10 hover:bg-white/25 px-5 py-1.5 transition-colors duration-150 backdrop-blur border-none text-sm"
+               >
+                 <span className="font-semibold bg-clip-text text-transparent bg-gradient-to-t from-gray-300/70 to-white">
                  Cancel
+                 </span>
                </Button>
-               <Button variant="default" size="sm" onClick={() => {
+               {/* Updated Apply Range button style (Matches Hero Primary) */}
+               <Button 
+                 variant="default" // Keep variant for structure, override styles below
+                 size="sm" 
+                 onClick={() => {
                    if (tempStartDate && tempEndDate) {
                        setCustomRange(tempStartDate, tempEndDate);
                    }
                    setIsDatePickerOpen(false);
                  }}
-                 className="bg-blue-600 hover:bg-blue-700 text-white"
+                 className="rounded-full ring-2 ring-white/15 bg-gradient-to-t from-gray-300/70 to-white hover:bg-white text-black px-5 py-1.5 transition-colors duration-150 font-semibold text-sm"
                >
                  Apply Range
                </Button>
@@ -953,9 +1120,9 @@ export default function ProjectErrorsPage() {
          </div>
        )}
 
-       {/* Error Detail Modal */}
-       <ErrorDetailModal 
-         isOpen={isModalOpen} 
+       {/* Error Detail Drawer (Replaced Modal) */}
+       <ErrorDetailDrawer 
+         isOpen={isModalOpen} // Keep state variable name for simplicity, or rename if preferred
          onClose={handleCloseModal} 
          error={selectedError}
          onResolve={resolveErrorOptimistic}
