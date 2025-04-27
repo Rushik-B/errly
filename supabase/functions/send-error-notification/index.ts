@@ -83,6 +83,33 @@ serve(async (req: Request): Promise<Response> => {
     // Store the user ID from the project table (this should be the public.users.id)
     const projectUserId = projectData.user_id;
 
+    // === Fetch User Preference ===
+    console.log(`[send-error-notification] Fetching profile for user ID: ${projectUserId}`);
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from("users") // Target the 'users' table
+      .select(`phone_notifications_enabled`)
+      .eq("id", projectUserId) // Match the user ID (assuming users.id is the PK referenced by projects.user_id)
+      .maybeSingle();
+
+    if (userError) {
+      console.error(`[send-error-notification] Error fetching user data for user ID ${projectUserId}:`, userError.message);
+      // Decide if this should be a fatal error or just skip notification
+      return new Response(
+        JSON.stringify({ message: "User data lookup failed, skipping notification.", details: userError.message }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Check if notifications are disabled for this user
+    if (!userData?.phone_notifications_enabled) {
+      console.log(`[send-error-notification] Phone notifications disabled for user ID: ${projectUserId}. Skipping notification.`);
+      return new Response(
+        JSON.stringify({ message: "User has phone notifications disabled." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    // === End of User Preference Check ===
+
     // === Replace User Query with Phone Number Query ===
     console.log(`[send-error-notification] Fetching primary phone number for user ID: ${projectUserId}`);
     const { data: phoneData, error: phoneError } = await supabaseAdmin

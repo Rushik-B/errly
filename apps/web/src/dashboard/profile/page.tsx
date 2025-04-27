@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 // API base URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -36,6 +38,7 @@ interface UserProfile {
   email: string
   phone_number: string | null // Represents the single column in users table (may be deprecated)
   created_at: string
+  phone_notifications_enabled: boolean
 }
 
 // Define interface for data from 'phone_numbers' table
@@ -52,8 +55,10 @@ interface PhoneNumber {
 export default function ProfilePage() {
   const { user, signOut, loading: loadingAuth } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isUpdatingNotificationPref, setIsUpdatingNotificationPref] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([])
@@ -131,9 +136,9 @@ export default function ProfilePage() {
         // --- Fetch or Create User Profile in public.users ---
         console.log('Querying for user profile with supabase_auth_id:', user.id);
         let { data: profileData, error: profileError } = await supabase
-          .from('users') 
-          .select('*')
-          .eq('supabase_auth_id', user.id) 
+          .from('users')
+          .select('*, phone_notifications_enabled')
+          .eq('supabase_auth_id', user.id)
           .single();
 
         if (profileError && profileError.code !== 'PGRST116') {
@@ -145,8 +150,8 @@ export default function ProfilePage() {
           console.log('Profile not found, creating...');
           const { data: newProfile, error: insertError } = await supabase
             .from('users')
-            .insert({ supabase_auth_id: user.id, email: user.email || '' })
-            .select('*')
+            .insert({ supabase_auth_id: user.id, email: user.email || '', phone_notifications_enabled: true })
+            .select('*, phone_notifications_enabled')
             .single();
 
           if (insertError) throw new Error(`Failed to create user profile: ${insertError.message}`);
@@ -159,6 +164,11 @@ export default function ProfilePage() {
         }
 
         setProfile(fetchedProfileData); // Set profile state
+
+        // Initialize notification toggle state from fetched profile data
+        if (fetchedProfileData) {
+           setNotificationsEnabled(fetchedProfileData.phone_notifications_enabled);
+        }
 
         // --- Fetch Phone Numbers (If Profile Exists) ---
         if (fetchedProfileData?.id) { // Ensure we have the profile ID
@@ -386,6 +396,49 @@ export default function ProfilePage() {
     }
   }
 
+  // --- Handler for Notification Toggle ---
+  const handleToggleNotifications = async (checked: boolean) => {
+    if (!profile?.id) {
+        console.error("Profile ID not available to update notification preference.");
+        setError("Could not update notification preference: Profile not loaded.");
+        return;
+    }
+
+    setIsUpdatingNotificationPref(true);
+    setError(null);
+    setSuccess(null); // Clear previous success messages
+
+    try {
+        const { data, error: updateError } = await supabase
+            .from('users')
+            .update({ phone_notifications_enabled: checked })
+            .eq('id', profile.id) // Use the primary key 'id' of the users table
+            .select('phone_notifications_enabled') // Select the updated field back
+            .single();
+
+        if (updateError) {
+            throw updateError;
+        }
+
+        if (data) {
+             setNotificationsEnabled(data.phone_notifications_enabled); // Update local state from response
+             setSuccess("Notification preference updated successfully!");
+             // Auto-clear success message after a delay
+             setTimeout(() => setSuccess(null), 3000);
+        } else {
+             throw new Error("Update successful but no data returned."); // Should not happen with .single()
+        }
+
+    } catch (err: any) {
+        console.error('Error updating notification preference:', err);
+        setError(`Failed to update notification preference: ${err.message || 'Unknown error'}`);
+        // Optionally revert local state on error?
+        // setNotificationsEnabled(!checked);
+    } finally {
+        setIsUpdatingNotificationPref(false);
+    }
+};
+
   // Loading State UI
   if (loadingAuth || isLoading) {
     return (
@@ -466,6 +519,25 @@ export default function ProfilePage() {
               <p><span className="text-white/60">Member since:</span> {new Date(profile.created_at).toLocaleDateString()}</p>
             </div>
           )}
+          
+          {/* Notification Settings Section */}
+          <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8 p-6 border border-gray-200">
+            <h2 className="text-xl font-semibold mb-4 flex items-center">
+               <Settings className="mr-2 h-5 w-5" /> Notification Settings
+            </h2>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="phone-notifications"
+                checked={notificationsEnabled}
+                onCheckedChange={handleToggleNotifications}
+                disabled={isUpdatingNotificationPref || !profile} // Disable while updating or if profile isn't loaded
+              />
+              <Label htmlFor="phone-notifications" className="cursor-pointer">
+                  Enable Phone Call Notifications for New Errors
+              </Label>
+            </div>
+             {isUpdatingNotificationPref && <p className="text-sm text-gray-500 mt-2">Updating preference...</p>}
+          </div>
           
           {/* List Existing Numbers */} 
           {phoneNumbers.length > 0 && (
