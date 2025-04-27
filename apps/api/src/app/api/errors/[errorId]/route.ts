@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../../lib/supabase/admin';
 import { getUserFromToken } from '../../../../lib/authUtils';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
-import { corsHeaders } from '@/lib/cors'; // Assuming CORS helper exists
+import { corsHeaders } from '../../../../lib/authUtils';
 
 // Initialize Supabase Admin Client (use environment variables)
 const supabaseAdminClient = createClient(
