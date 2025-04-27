@@ -1,0 +1,85 @@
+
+Okay, let's tackle those unimplemented features in the `ErrorDetailDrawer`. Here’s a plan, starting with the most crucial ones:
+
+**Phase 1: Implement Resolve & Mute Functionality**
+
+This is fundamental to managing errors.
+
+1.  **Database Schema Update:**
+    *   We need to track the state of an error. I'll create a new migration file to:
+        *   Add a `state` column to the `public.errors` table (e.g., type `text`, possible values: `'active'`, `'resolved'`, `'muted'`, default: `'active'`).
+        *   Add a `muted_until` column (type `timestamp with time zone`, nullable).
+    *   *(Self-correction: If there's already a `resolved` boolean column, we should alter it or drop it in favor of the new `state` column for consistency).*
+
+2.  **Backend API Endpoints:**
+    *   Create a new API route, probably in `apps/api/src/app/api/errors/[errorId]/route.ts` (or similar based on your Next.js API structure).
+    *   This route should handle `PATCH` requests.
+    *   It needs to:
+        *   Authenticate the request (check the Supabase JWT).
+        *   Authorize: Verify the user owns the project associated with the `errorId`.
+        *   Accept a JSON body like `{ "state": "resolved" }` or `{ "state": "muted", "muted_until": "iso_timestamp_string" }`.
+        *   Update the corresponding error record in the `public.errors` table using the Supabase admin client.
+        *   Return the updated error data or a success confirmation.
+
+3.  **Frontend (`ErrorDetailDrawer.tsx`) Update:**
+    *   Modify `handleResolve` and `handleMute`:
+        *   Remove the direct calls to `toast.success(...)`.
+        *   Inside these functions, make an authenticated `fetch` call to the new `PATCH /api/errors/[errorId]` endpoint with the appropriate body (`{ state: 'resolved' }` or `{ state: 'muted', muted_until: ... }`).
+        *   Use the `session.access_token` for the Authorization header.
+        *   **On successful API response:**
+            *   Call the original `onResolve?.(error.id)` or `onMute?.(error.id, muteUntil)` props. This triggers the optimistic UI update in the parent component (`ProjectErrorsPage`).
+            *   Show a success toast (`toast.success(...)`).
+            *   Close the drawer (`onClose()`).
+        *   **On API error:**
+            *   Log the error.
+            *   Show an error toast (`toast.error(...)`).
+
+**Phase 2: Implement "Copy cURL"**
+
+This is useful for debugging request-related errors.
+
+1.  **Logic Implementation (`ErrorDetailDrawer.tsx`):**
+    *   Inside the `onClick` handler for the "Copy cURL" button:
+        *   Check if `displayError.request` data (method, URL) is available. If not, show a toast message ("Request details not available") and return.
+        *   Construct the basic cURL command string: `curl -X ${method} '${url}'`.
+        *   Iterate through `displayError.request.headers` (if available) and add `-H 'Header-Name: HeaderValue'` for each. Be mindful of sensitive headers like `Authorization` or `Cookie` – maybe omit them or show a warning.
+        *   If `displayError.request.body` exists:
+            *   Add `-H 'Content-Type: application/json'` (or infer from headers if possible).
+            *   Stringify the body (`JSON.stringify(body)`) and add it using `-d '${stringifiedBody}'`. Handle non-JSON bodies if necessary.
+        *   Use the `copyToClipboard` helper function with the constructed cURL string.
+
+**Phase 3: Implement "Create Issue"**
+
+This requires configuration but provides workflow integration.
+
+1.  **Configuration:**
+    *   We need a way to know *where* to create the issue (e.g., GitHub repo, Jira project). This should likely be stored per-project in your database (e.g., in the `projects` table, add columns like `issue_tracker_type` ('github', 'jira', etc.) and `issue_tracker_config` (like 'owner/repo' for GitHub or project key for Jira)).
+    *   Alternatively, it could be a simpler global setting if all projects use the same tracker.
+
+2.  **Frontend (`ErrorDetailDrawer.tsx`) Update:**
+    *   Fetch the project's issue tracker configuration along with other project details (or pass it down).
+    *   Inside the `onClick` handler for the "Create Issue" button:
+        *   Check if tracker configuration is available. If not, disable the button or show a message.
+        *   Construct the issue title (e.g., `Error: ${displayError.message}`).
+        *   Construct the issue body (include error message, level, last seen time, a link back to the error in Errly if possible, maybe truncated stack trace/metadata).
+        *   Based on `issue_tracker_type`:
+            *   **GitHub:** Create URL `https://github.com/${config.repo}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`.
+            *   **Jira:** Construct the appropriate `secure/CreateIssueDetails!init.jspa?...` URL with encoded fields.
+        *   Open the generated URL in a new tab: `window.open(issueUrl, '_blank')`.
+
+**Phase 4: Implement "Open in GitHub"**
+
+This is potentially complex due to source mapping.
+
+1.  **Prerequisites & Configuration:**
+    *   Verify that your SDK and backend *can* provide reliable `source` information (`absolute_path`, `filename`, `lineno`) and the `release` (commit SHA).
+    *   Requires project-specific configuration: GitHub owner/repo (`owner/repo`) and potentially a mapping between the server's `absolute_path` and the path relative to the repository root. The `release` field should ideally be the commit SHA used for the build associated with the error.
+
+2.  **Frontend (`ErrorDetailDrawer.tsx`) Update:**
+    *   Get the GitHub repo config (`owner/repo`) for the project.
+    *   Inside the `<a>` tag's logic (or button's `onClick`):
+        *   Check if necessary data is present: `displayError.source?.filename`, `displayError.release`, and the repo config. Disable the link/button if not.
+        *   Construct the URL: `https://github.com/${owner}/${repo}/blob/${displayError.release}/${displayError.source.filename}#L${displayError.source.lineno || 1}`. (Note: Using `filename` assumes it's the path relative to the repo root. If you have `absolute_path` and need mapping, that logic goes here).
+        *   Set the `href` attribute of the link.
+
+

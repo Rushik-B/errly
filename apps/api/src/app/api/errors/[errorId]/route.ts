@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase/admin';
 import { getUserFromToken } from '../../../../lib/authUtils';
 import { z } from 'zod';
+import { createClient } from '@supabase/supabase-js';
+import { corsHeaders } from '@/lib/cors'; // Assuming CORS helper exists
+
+// Initialize Supabase Admin Client (use environment variables)
+const supabaseAdminClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  { auth: { persistSession: false } }
+);
 
 // Common CORS headers (adjust origin as needed)
 const corsHeaders = {
@@ -93,4 +102,101 @@ export async function GET(request: NextRequest, { params }: { params: { errorId:
         console.error(`[API GET /errors/${errorId}] Unexpected error:`, errorMessage);
         return NextResponse.json({ error: errorMessage }, { status: 500, headers: corsHeaders });
     }
+}
+
+// TODO: Implement proper authentication and authorization
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { errorId: string } }
+) {
+  const errorId = params.errorId;
+  let updateData: { state?: string; muted_until?: string | null } = {};
+  let responseStatus = 200;
+  let responseBody: any = { message: 'Error updated successfully' };
+
+  // Handle CORS preflight request
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { headers: corsHeaders });
+  }
+
+  try {
+    const body = await request.json();
+    const newState = body.state;
+    const mutedUntil = body.muted_until; // Expect ISO string
+
+    console.log(`[API PATCH /api/errors/${errorId}] Received request:`, body);
+
+    // --- Basic Input Validation ---
+    if (!newState || !['active', 'resolved', 'muted'].includes(newState)) {
+      responseStatus = 400;
+      responseBody = { error: 'Invalid or missing state value. Must be one of: active, resolved, muted.' };
+      return new NextResponse(JSON.stringify(responseBody), { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    if (newState === 'muted' && !mutedUntil) {
+      responseStatus = 400;
+      responseBody = { error: 'muted_until timestamp is required when state is muted.' };
+      return new NextResponse(JSON.stringify(responseBody), { status: responseStatus, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // --- Prepare Update Payload ---
+    updateData.state = newState;
+    if (newState === 'muted') {
+      // Validate timestamp format if needed, Supabase handles basic validation
+      updateData.muted_until = mutedUntil;
+    } else {
+      // Clear muted_until if state is changing to active or resolved
+      updateData.muted_until = null;
+    }
+
+    // --- Authorization (Placeholder - NEEDS IMPLEMENTATION) ---
+    // 1. Get user from JWT (e.g., using request headers and Supabase auth helpers)
+    // const { data: { user }, error: userError } = await supabase.auth.getUser(request.headers.get('Authorization')?.split(' ')[1]);
+    // if (userError || !user) { throw new Error('Unauthorized'); }
+    // 2. Verify user owns the project associated with this errorId
+    // const { data: errorProject, error: ownerError } = await supabaseAdmin
+    //   .from('errors')
+    //   .select('projects(user_id)')
+    //   .eq('id', errorId)
+    //   .single();
+    // if (ownerError || !errorProject || errorProject.projects.user_id !== user.id) {
+    //   throw new Error('Forbidden: User does not own the project associated with this error.');
+    // }
+    // --- End Authorization Placeholder ---
+
+    console.log(`[API PATCH /api/errors/${errorId}] Updating with data:`, updateData);
+
+    // --- Database Update ---
+    const { data, error } = await supabaseAdminClient
+      .from('errors')
+      .update(updateData)
+      .eq('id', errorId)
+      .select('id, state, muted_until') // Select updated fields back
+      .single();
+
+    if (error) {
+      console.error(`[API PATCH /api/errors/${errorId}] Supabase error:`, error);
+      throw new Error(`Database update failed: ${error.message}`);
+    }
+
+    if (!data) {
+       responseStatus = 404;
+       responseBody = { error: `Error with ID ${errorId} not found.` };
+    } else {
+       responseBody = data; // Return the updated data
+    }
+
+
+  } catch (err: any) {
+    console.error(`[API PATCH /api/errors/${errorId}] Error:`, err.message);
+    responseStatus = err.message.includes('Unauthorized') ? 401 : err.message.includes('Forbidden') ? 403 : 500;
+    responseBody = { error: err.message || 'An internal server error occurred.' };
+  }
+
+  // Return the response
+  return new NextResponse(JSON.stringify(responseBody), {
+    status: responseStatus,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 } 

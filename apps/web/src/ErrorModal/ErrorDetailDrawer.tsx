@@ -139,6 +139,7 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
 }) => {
   const { session } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false); // Add state for update operations
   const [detailedError, setDetailedError] = useState<ApiError | null>(null);
 
   // --- Effects ---
@@ -293,26 +294,67 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
      ? `${displayError.source.filename}:${displayError.source.lineno ?? '?'}`
      : 'View Source';
 
-  // --- Event Handlers (Resolve, Mute - Fixed toast calls) ---
+  // --- Event Handlers (Resolve, Mute - UPDATED) ---
   const handleResolve = async () => {
-      if (!displayError.id) return;
+      if (!displayError.id || isUpdating || !session?.access_token) {
+        if(!session?.access_token) toast.error('Authentication session missing.');
+        return;
+      }
+      setIsUpdating(true);
       console.log('Resolving error:', displayError.id);
       try {
-          onResolve?.(displayError.id); // Call optimistic update
-          toast.success('Error marked as resolved (simulated)');
-          onClose(); // Close drawer on success
-      } catch (err) { console.error('Resolve failed:', err); toast.error('Failed to resolve'); }
+         // Call the backend API
+         await fetchWithErrorHandling(
+            `${API_BASE_URL}/api/errors/${displayError.id}`,
+            {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: 'resolved' }),
+            },
+            session.access_token // Pass the token
+         );
+         // On success, call optimistic update, notify, and close
+         onResolve?.(displayError.id);
+         toast.success('Error marked as resolved!');
+         onClose();
+      } catch (err: any) {
+         console.error('Resolve failed:', err);
+         toast.error(`Failed to resolve: ${err.message || 'Unknown error'}`);
+      } finally {
+         setIsUpdating(false);
+      }
   };
 
   const handleMute = async () => {
-       if (!displayError.id) return;
+       if (!displayError.id || isUpdating || !session?.access_token) {
+         if(!session?.access_token) toast.error('Authentication session missing.');
+         return;
+       }
+       setIsUpdating(true);
        console.log('Muting error:', displayError.id);
-       const muteUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours from now
+       const muteUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+
        try {
-           onMute?.(displayError.id, muteUntil); // Call optimistic update
-           toast.success('Error muted for 24h (simulated)');
-           onClose(); // Close drawer on success
-       } catch (err) { console.error('Mute failed:', err); toast.error('Failed to mute'); }
+          // Call the backend API
+          await fetchWithErrorHandling(
+            `${API_BASE_URL}/api/errors/${displayError.id}`,
+            {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: 'muted', muted_until: muteUntil }),
+            },
+            session.access_token // Pass the token
+          );
+          // On success, call optimistic update, notify, and close
+          onMute?.(displayError.id, muteUntil);
+          toast.success('Error muted for 24 hours!');
+          onClose();
+       } catch (err: any) {
+          console.error('Mute failed:', err);
+          toast.error(`Failed to mute: ${err.message || 'Unknown error'}`);
+       } finally {
+          setIsUpdating(false);
+       }
   };
 
   // --- Reusable Code Block (Fixed return type and styling) ---
@@ -382,7 +424,7 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
             aria-modal="true"
             role="dialog"
           >
-            {/* Header Bar */}
+            {/* Header Bar (Add disabled state to buttons) */}
             <div className={styles.header}>
               <div className={styles.headerTitle}>
                 <span className={`${styles.badge} ${levelDetails.colorClass}`}>{levelDetails.text}</span>
@@ -391,15 +433,27 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
                 </h2>
               </div>
               <div className={styles.headerActions}>
-                <button onClick={handleResolve} className={`${styles.actionButton} ${styles.resolveButton}`} title="Mark Resolved">
-                  <CheckCircleIcon className="w-5 h-5 mr-1" /> Resolve
+                <button
+                   onClick={handleResolve}
+                   className={`${styles.actionButton} ${styles.resolveButton}`}
+                   title="Mark Resolved"
+                   disabled={isUpdating} // Disable while updating
+                >
+                  <CheckCircleIcon className="w-5 h-5 mr-1" />
+                   {isUpdating ? 'Resolving...' : 'Resolve'}
                 </button>
-                <button onClick={handleMute} className={`${styles.actionButton} ${styles.muteButton}`} title="Mute for 24 hours">
-                   <BellSlashIcon className="w-5 h-5 mr-1" /> Mute 24h
+                <button
+                   onClick={handleMute}
+                   className={`${styles.actionButton} ${styles.muteButton}`}
+                   title="Mute for 24 hours"
+                   disabled={isUpdating} // Disable while updating
+                >
+                   <BellSlashIcon className="w-5 h-5 mr-1" />
+                   {isUpdating ? 'Muting...' : 'Mute 24h'}
                 </button>
-                <button onClick={onClose} className={styles.closeButton} aria-label="Close drawer">
-                  <XMarkIcon className="w-6 h-6" />
-                </button>
+                 <button onClick={onClose} className={styles.closeButton} aria-label="Close drawer" disabled={isUpdating}>
+                   <XMarkIcon className="w-6 h-6" />
+                 </button>
               </div>
             </div>
 
