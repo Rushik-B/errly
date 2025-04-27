@@ -12,14 +12,6 @@ const supabaseAdminClient = createClient(
   { auth: { persistSession: false } }
 );
 
-// Common CORS headers (adjust origin as needed)
-const corsHeaders = {
-    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080', 
-    'Access-Control-Allow-Methods': 'GET, OPTIONS', 
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization', 
-    'Access-Control-Allow-Credentials': 'true',
-};
-
 // OPTIONS handler for preflight requests
 export async function OPTIONS(request: NextRequest) {
     return new NextResponse(null, { status: 204, headers: corsHeaders });
