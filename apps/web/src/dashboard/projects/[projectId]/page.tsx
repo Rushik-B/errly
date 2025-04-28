@@ -254,12 +254,7 @@ for (let i = 0; i < totalHours; i++) {
         level,
         metadata,
         stack_trace: stackTrace,
-        // Generate simple fake trend data for visual testing
         count: Math.floor(1 + Math.random() * 20), // Give it a random count > 0
-        trend: Array.from({ length: 24 }, (_, k) => ({ 
-            time: `T${k}`, // Mock time bucket label
-            count: Math.floor(Math.random() * (level === 'error' || level === 'warn' ? 5 : 3)) // Generate random counts
-        })) 
     };
   };
 
@@ -943,7 +938,8 @@ export default function ProjectErrorsPage() {
                       sortedAndFilteredErrors.map((error, index) => {
                         const LevelIcon = getLevelIcon(error.level);
                         const levelBorderClass = getLevelRowBorderClassName(error.level);
-                        const hasMeaningfulTrend = error.trend && error.trend.filter(t => t.count > 0).length > 1;
+                        // Relax condition: Show sparkline if *any* trend data point has count > 0
+                        const hasMeaningfulTrend = error.trend && error.trend.filter(t => t.count > 0).length > 0;
 
                         // Format timestamp as requested
                         let formattedReceivedAt = "Invalid Date";
