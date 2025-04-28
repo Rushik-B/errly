@@ -152,7 +152,7 @@ $$;
 ALTER FUNCTION "public"."get_aggregated_errors"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "page_param" integer, "limit_param" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone DEFAULT NULL::timestamp with time zone, "end_date_param" timestamp with time zone DEFAULT NULL::timestamp with time zone, "page_param" integer DEFAULT 1, "limit_param" integer DEFAULT 20) RETURNS TABLE("out_message" "text", "out_level" "text", "out_count" bigint, "out_last_seen" timestamp with time zone, "out_representative_id" "uuid", "out_trend" "jsonb", "out_total_groups" bigint)
+CREATE OR REPLACE FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone DEFAULT NULL::timestamp with time zone, "end_date_param" timestamp with time zone DEFAULT NULL::timestamp with time zone, "page_param" integer DEFAULT 1, "limit_param" integer DEFAULT 20, "bucket_interval_param" text DEFAULT 'hour') RETURNS TABLE("out_message" "text", "out_level" "text", "out_count" bigint, "out_last_seen" timestamp with time zone, "out_representative_id" "uuid", "out_trend" "jsonb", "out_total_groups" bigint)
     LANGUAGE "plpgsql" STABLE
     AS $$
 DECLARE
@@ -165,44 +165,36 @@ BEGIN
             fe.id AS fe_id,
             fe.message AS fe_message,
             fe.level AS fe_level,
-            fe.received_at AS fe_received_at
+            fe.received_at AS fe_received_at,
+            date_trunc(bucket_interval_param, fe.received_at AT TIME ZONE 'UTC') as hour_bucket
         FROM public.errors fe
         WHERE fe.project_id = project_id_param
           AND fe.received_at >= _start_date
           AND fe.received_at <= _end_date
     ),
-    time_buckets AS (
-        SELECT generate_series(
-                   date_trunc('hour', _start_date),
-                   date_trunc('hour', _end_date),
-                   INTERVAL '1 hour'
-               ) AS hour_bucket
-    ),
-    hourly_counts_per_group AS (
+    hourly_group_counts AS (
         SELECT
-            f.fe_message,
-            f.fe_level,
-            t.hour_bucket,
-            COUNT(f.fe_id) AS hourly_count
-        FROM time_buckets t
-        LEFT JOIN filtered_errors f ON date_trunc('hour', f.fe_received_at) = t.hour_bucket -- Corrected order here
-        WHERE f.fe_message IS NOT NULL AND f.fe_level IS NOT NULL
-        GROUP BY f.fe_message, f.fe_level, t.hour_bucket
+            fe_message,
+            fe_level,
+            hour_bucket,
+            COUNT(*) as hourly_count
+        FROM filtered_errors
+        GROUP BY fe_message, fe_level, hour_bucket
     ),
     grouped_errors AS (
         SELECT
-            f.fe_message,
-            f.fe_level,
-            COUNT(f.fe_id) AS total_count,
-            MAX(f.fe_received_at) AS last_seen,
-            (array_agg(f.fe_id ORDER BY f.fe_received_at DESC))[1] AS representative_id,
+            hg.fe_message,
+            hg.fe_level,
+            SUM(hg.hourly_count) AS total_count,
+            MAX(fe.fe_received_at) AS last_seen,
+            (array_agg(fe.fe_id ORDER BY fe.fe_received_at DESC))[1] AS representative_id,
             jsonb_agg(
-                jsonb_build_object('time', hc.hour_bucket, 'count', hc.hourly_count)
-                ORDER BY hc.hour_bucket ASC
-            ) FILTER (WHERE hc.hour_bucket IS NOT NULL) AS trend_data
-        FROM filtered_errors f
-        LEFT JOIN hourly_counts_per_group hc ON f.fe_message = hc.fe_message AND f.fe_level = hc.fe_level
-        GROUP BY f.fe_message, f.fe_level
+                jsonb_build_object('time', hg.hour_bucket, 'count', hg.hourly_count)
+                ORDER BY hg.hour_bucket ASC
+            ) FILTER (WHERE hg.hour_bucket IS NOT NULL) AS trend_data
+        FROM hourly_group_counts hg
+        JOIN filtered_errors fe ON hg.fe_message = fe.fe_message AND hg.fe_level = fe.fe_level AND hg.hour_bucket = fe.hour_bucket
+        GROUP BY hg.fe_message, hg.fe_level
     ),
     paginated_groups AS (
         SELECT pg.*,
@@ -224,7 +216,7 @@ END;
 $$;
 
 
-ALTER FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "page_param" integer, "limit_param" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "page_param" integer, "limit_param" integer, "bucket_interval_param" text) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."get_log_volume_aggregate"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "bucket_interval" "text") RETURNS TABLE("timestamp" timestamp with time zone, "level" "text", "count" bigint)
@@ -824,9 +816,9 @@ GRANT ALL ON FUNCTION "public"."get_aggregated_errors"("project_id_param" "uuid"
 
 
 
-GRANT ALL ON FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "page_param" integer, "limit_param" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "page_param" integer, "limit_param" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "page_param" integer, "limit_param" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "page_param" integer, "limit_param" integer, "bucket_interval_param" text) TO "anon";
+GRANT ALL ON FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "page_param" integer, "limit_param" integer, "bucket_interval_param" text) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_aggregated_errors_trend_v1"("project_id_param" "uuid", "start_date_param" timestamp with time zone, "end_date_param" timestamp with time zone, "page_param" integer, "limit_param" integer, "bucket_interval_param" text) TO "service_role";
 
 
 

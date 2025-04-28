@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '../../../lib/supabase/admin'
-import { supabaseServiceClient } from '../../../lib/supabaseClient'
-import { getUserFromToken } from '../../../lib/authUtils'
+import { supabaseAdmin } from '../../../lib/supabase/admin.ts'
+import { supabaseServiceClient } from '../../../lib/supabaseClient.ts'
+import { getUserFromToken } from '../../../lib/authUtils.ts'
 import { z } from 'zod' // Import Zod
 
 // Restore dashboard-specific CORS headers (for GET requests)
@@ -153,6 +153,24 @@ export async function GET(request: NextRequest) {
   const startDateParam = searchParams.get('startDate');
   const endDateParam = searchParams.get('endDate');
 
+  // --- Calculate Bucket Interval based on Date Range --- 
+  const startDate = startDateParam ? new Date(startDateParam) : new Date(Date.now() - 24 * 60 * 60 * 1000); // Default 24h ago
+  const endDate = endDateParam ? new Date(endDateParam) : new Date(); // Default now
+
+  let bucketInterval = 'hour'; // Default to hourly
+  if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+      const durationMs = endDate.getTime() - startDate.getTime();
+      const durationHours = durationMs / (1000 * 60 * 60);
+      // Use 'day' interval if the range is more than 48 hours
+      if (durationHours > 48) {
+          bucketInterval = 'day';
+      }
+  } else {
+      console.warn('[API GET /errors] Invalid start or end date parameter received. Defaulting interval to hour.');
+  }
+  console.log(`[API GET /errors] Determined bucket interval: ${bucketInterval}`);
+  // --- End Calculate Bucket Interval --- 
+
   // Prepare RPC parameters
   const rpcParams: { 
     project_id_param: string;
@@ -160,10 +178,12 @@ export async function GET(request: NextRequest) {
     end_date_param?: string;
     page_param: number;
     limit_param: number;
+    bucket_interval_param: string; // Add the new parameter
   } = {
     project_id_param: projectId,
     page_param: page,
     limit_param: limit,
+    bucket_interval_param: bucketInterval, // Pass the calculated interval
   };
 
   // Add date parameters if they are valid dates
