@@ -14,7 +14,8 @@
     "jsx": "preserve",
     "incremental": true,
     "noUncheckedIndexedAccess": true,
-    "noEmit": true // Typically don't emit JS from base config
+    "noEmit": true, // Typically don't emit JS from base config
+    "allowImportingTsExtensions": true
   },
   "exclude": ["node_modules", ".turbo", "dist"]
 } 
