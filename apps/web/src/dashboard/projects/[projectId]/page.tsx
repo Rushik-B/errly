@@ -520,7 +520,10 @@ export default function ProjectErrorsPage() {
     } 
       
     // Original realtime logic (only runs if USE_MOCK_DATA is false)
-    if (!session || !projectId) return;
+    if (loadingAuth || !session || !projectId) {
+        console.log(`[Realtime] Skipping setup. loadingAuth: ${loadingAuth}, session: ${!!session}, projectId: ${projectId}`);
+        return;
+    }
     console.log(`[Realtime] Setting up subscription for project: ${projectId}`);
     const handleNewError = (payload: any) => {
       if (payload.eventType !== 'INSERT' || !payload.new || typeof payload.new !== 'object') return;
@@ -535,7 +538,7 @@ export default function ProjectErrorsPage() {
     return () => {
       if (channel) supabase.removeChannel(channel).catch(console.error);
     };
-  }, [supabase, projectId, session, USE_MOCK_DATA]); // Added USE_MOCK_DATA to deps
+  }, [supabase, projectId, session, USE_MOCK_DATA, loadingAuth]); // Added USE_MOCK_DATA and loadingAuth to deps
 
   // --- Memoized Derived State --- 
   const filteredErrors = useMemo(() => {

@@ -512,9 +512,17 @@ CREATE POLICY "Allow authenticated users to read own profile" ON "public"."users
 
 
 
-CREATE POLICY "Allow authenticated users to read their project errors" ON "public"."errors" FOR SELECT TO "authenticated" USING ((( SELECT "projects"."user_id"
-   FROM "public"."projects"
-  WHERE ("projects"."id" = "errors"."project_id")) = "auth"."uid"()));
+DROP POLICY IF EXISTS "Allow authenticated users to read their project errors" ON "public"."errors"; -- Drop existing policy first
+CREATE POLICY "Allow authenticated users to read their project errors" ON "public"."errors" FOR SELECT TO "authenticated"
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.projects p
+    JOIN public.users u ON p.user_id = u.id
+    WHERE p.id = errors.project_id
+      AND u.supabase_auth_id = auth.uid()
+  )
+);
 
 
 
