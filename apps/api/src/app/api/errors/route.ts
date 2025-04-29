@@ -150,28 +150,33 @@ export async function GET(request: NextRequest) {
       .maybeSingle(); // Use maybeSingle to handle null case gracefully
 
     if (projectError) {
-      console.error('[API GET /errors] Error validating project ownership:', projectError.message);
-      return NextResponse.json({ error: 'Failed to validate project ownership', details: projectError.message }, { status: 500, headers: dashboardCorsHeaders });
+      // Log more verbosely
+      console.error(`[API GET /errors] DB ERROR during project validation for project ${projectId} and user ${publicUserId}:`, JSON.stringify(projectError, null, 2));
+      // Return a distinct error message
+      return NextResponse.json({ error: 'DATABASE_ERROR_VALIDATING_PROJECT', details: projectError.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
     if (!project) {
-      // If project is null, it means either it doesn't exist or doesn't belong to THIS user (with publicUserId Y)
-      console.warn(`[API GET /errors] Project ${projectId} not found or access denied for public user ${publicUserId}.`);
-      // Add CORS headers here too
-      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
+      // Log more verbosely
+      console.warn(`[API GET /errors] ACCESS DENIED or NOT FOUND for project ${projectId} and user ${publicUserId}.`);
+      // Return a distinct error message
+      return NextResponse.json({ error: 'PROJECT_NOT_FOUND_OR_ACCESS_DENIED' }, { status: 404, headers: dashboardCorsHeaders });
     }
     // If we reach here, the user (Y) owns the project (ID: projectId)
     // console.log(`[API GET /errors] Project ${projectId} ownership validated for public user ${publicUserId}.`); // Remove log
   } catch (err: unknown) {
-    let errorMessage = 'An unexpected error occurred during project validation';
+    // Log the raw error caught by the catch block
+    console.error(`[API GET /errors] UNEXPECTED CATCH during project validation for project ${projectId}:`, err);
+    let errorMessage = 'UNEXPECTED_ERROR_DURING_PROJECT_VALIDATION';
     if (err instanceof Error) {
-        errorMessage = err.message;
+        // Keep original message in details if possible
+        errorMessage = `${errorMessage}: ${err.message}`;
     }
-    console.error('[API GET /errors] Unexpected error validating project ownership:', errorMessage);
+    // Return a distinct error message
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
   // --- End Validate Project Ownership ---
-  console.log(`[API GET /errors] Project validation successful for project ${projectId}. Proceeding to params...`); // <-- ADD THIS LOG
+  console.log(`[API GET /errors] Project validation successful for project ${projectId}. Proceeding to params...`); // <-- Keep this log
   
   // <<<<<<<<<<<<<<<<<<<<< RESTORING RPC CALL BLOCK >>>>>>>>>>>>>>>>>>>>>
   // console.log("[API GET /errors] Project ownership validated successfully."); // Logging removed
