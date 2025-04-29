@@ -200,6 +200,23 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // <<< TEMPORARY DEBUGGING >>>
+    try {
+        console.log("[TEMP DEBUG] Attempting simplified RPC call...");
+        const testParams = { project_id_param: projectId }; // Only required param
+        const { data: testData, error: testError } = await supabaseAdmin
+          .rpc('get_aggregated_errors_trend_v1', testParams);
+        if (testError) {
+             console.error("[TEMP DEBUG] Simplified RPC call FAILED:", testError.message);
+        } else {
+             console.log("[TEMP DEBUG] Simplified RPC call SUCCEEDED."); // Don't log potentially large data
+        }
+    } catch (simpleErr: unknown) {
+        const simpleErrMsg = (simpleErr instanceof Error) ? simpleErr.message : String(simpleErr);
+        console.error("[TEMP DEBUG] Simplified RPC call threw exception:", simpleErrMsg);
+    }
+    // <<< END TEMPORARY DEBUGGING >>>
+
     // Call the NEW RPC function name
     const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
       .rpc('get_aggregated_errors_trend_v1', rpcParams); // <-- Changed function name
