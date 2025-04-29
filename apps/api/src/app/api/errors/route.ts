@@ -81,11 +81,24 @@ export async function GET(request: NextRequest) {
   const authUserId = user.id;
   let publicUserId: string; // To store the public user ID (Y)
 
-  // Extract query parameters
-  const { searchParams } = new URL(request.url);
-  const projectId = searchParams.get('projectId');
-  const pageParam = searchParams.get('page');
-  const limitParam = searchParams.get('limit');
+  // --- Extract query parameters (with extra logging/try-catch) ---
+  let projectId: string | null = null;
+  let pageParam: string | null = null;
+  let limitParam: string | null = null;
+  console.log("[API GET /errors] Attempting URL parsing and param extraction...");
+  try {
+    const url = new URL(request.url);
+    const { searchParams } = url;
+    projectId = searchParams.get('projectId');
+    pageParam = searchParams.get('page');
+    limitParam = searchParams.get('limit');
+    console.log("[API GET /errors] URL parsed. ProjectId=", projectId);
+  } catch (urlError: unknown) {
+      const errorMsg = (urlError instanceof Error) ? urlError.message : String(urlError);
+      console.error("[API GET /errors] CRITICAL ERROR during URL parsing:", errorMsg);
+      return NextResponse.json({ error: 'Failed to parse request URL', details: errorMsg }, { status: 500 }); // Return 500 immediately
+  }
+  // --- End Extract query parameters ---
 
   if (!projectId) {
     // Add log
@@ -99,20 +112,20 @@ export async function GET(request: NextRequest) {
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users') // Query public.users table
       .select('id') // Select its primary key (Y)
-      .eq('supabase_auth_id', authUserId) // Match using the auth ID (X)
+      .eq('supabase_auth_id', user.id) // Match using the auth ID (X)
       .single();
 
     if (userError) {
-      console.error(`[API GET /errors] Error fetching public user ID for auth ID ${authUserId}:`, userError.message);
+      console.error(`[API GET /errors] Error fetching public user ID for auth ID ${user.id}:`, userError.message);
       throw new Error('Failed to find user profile.'); 
     }
     if (!userData) {
-      console.error(`[API GET /errors] Public user profile not found for auth ID ${authUserId}.`);
+      console.error(`[API GET /errors] Public user profile not found for auth ID ${user.id}.`);
       // If the public profile doesn't exist, they cannot own any projects.
       return NextResponse.json({ error: 'User profile not found, cannot access projects' }, { status: 404, headers: dashboardCorsHeaders });
     }
-    publicUserId = userData.id; // Store the correct public user ID (Y)
-    console.log(`[API GET /errors] Found public user ID ${publicUserId} for auth ID ${authUserId}. Validating project ${projectId}...`);
+    const publicUserId = userData.id; // Store the correct public user ID (Y)
+    console.log(`[API GET /errors] Found public user ID ${publicUserId} for auth ID ${user.id}. Validating project ${projectId}...`);
 
   } catch (err: unknown) {
     const errorMessage = (err instanceof Error) ? err.message : 'Failed to retrieve user information';
