@@ -61,8 +61,10 @@ interface AggregatedErrorGroupV2 { // Renamed interface for clarity
 
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
 export async function GET(request: NextRequest) {
-  // console.log("[API GET /errors] Handler started."); // Logging removed
+  console.log("[API GET /errors] Handler started."); // Log start
 
+  // <<<<<<<<<<<<<<<<<<<<< TEMPORARILY COMMENTED OUT >>>>>>>>>>>>>>>>>>>>>>>
+  /*
   // Use JWT validation
   const user = await getUserFromToken(request);
 
@@ -131,7 +133,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
     // If we reach here, the user (Y) owns the project (ID: projectId)
-     console.log(`[API GET /errors] Project ${projectId} ownership validated for public user ${publicUserId}. Fetching errors...`);
+     // console.log(`[API GET /errors] Project ${projectId} ownership validated for public user ${publicUserId}. Fetching errors...`); // Log removed
   } catch (err: unknown) {
     let errorMessage = 'An unexpected error occurred during project validation';
     if (err instanceof Error) {
@@ -170,7 +172,7 @@ export async function GET(request: NextRequest) {
   } else {
       console.warn('[API GET /errors] Invalid start or end date parameter received. Defaulting interval to hour.');
   }
-  console.log(`[API GET /errors] Determined bucket interval: ${bucketInterval}`);
+  console.log(`[API GET /errors] Determined bucket interval: ${bucketInterval}`); // Keep this log
   // --- End Calculate Bucket Interval --- 
 
   // Prepare RPC parameters - Explicitly use null for optional dates
@@ -207,8 +209,6 @@ export async function GET(request: NextRequest) {
   console.log("[API GET /errors] Attempting RPC call with FULL params (null defaults):", rpcParams);
 
   try {
-    // console.log("[API GET /errors] Attempting main RPC call..."); // Logging removed
-
     // Call the NEW RPC function name with the original full params object
     const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
       .rpc('get_aggregated_errors_trend_v1', rpcParams); // <-- USE FULL rpcParams
@@ -249,6 +249,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
   // --- End Fetch Aggregated Errors ---
+  */
+  // <<<<<<<<<<<<<<<<<<<<< END TEMPORARY COMMENT OUT >>>>>>>>>>>>>>>>>>>>>
+
+  // Return a simple success message for now
+  return NextResponse.json({ message: "GET /api/errors handler reached successfully!" });
 }
 
 // POST /api/errors - Record a new error (using API Key authentication)
