@@ -207,17 +207,18 @@ export async function GET(request: NextRequest) {
   try {
     // console.log("[API GET /errors] Attempting main RPC call..."); // Logging removed
 
-    // <<< TEMPORARILY SIMPLIFY PARAMS >>>
-    const simplifiedRpcParams = {
-        project_id_param: projectId,
-        bucket_interval_param: bucketInterval,
-        // Temporarily omitting: start_date_param, end_date_param, page_param, limit_param
-    };
-    console.log("[API GET /errors] Attempting RPC call with SIMPLIFIED params:", simplifiedRpcParams);
+    // <<< REVERT PARAM SIMPLIFICATION >>>
+    // const simplifiedRpcParams = {
+    //     project_id_param: projectId,
+    //     bucket_interval_param: bucketInterval,
+    //     // Temporarily omitting: start_date_param, end_date_param, page_param, limit_param
+    // };
+    // console.log("[API GET /errors] Attempting RPC call with SIMPLIFIED params:", simplifiedRpcParams);
+    console.log("[API GET /errors] Attempting RPC call with FULL params:", rpcParams);
 
-    // Call the NEW RPC function name with simplified params
+    // Call the NEW RPC function name with the original full params object
     const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
-      .rpc('get_aggregated_errors_trend_v1', simplifiedRpcParams); // <-- USE SIMPLIFIED PARAMS
+      .rpc('get_aggregated_errors_trend_v1', rpcParams); // <-- USE FULL rpcParams
 
     if (rpcError) {
       console.error('Error calling get_aggregated_errors_trend_v1 RPC:', rpcError.message);
