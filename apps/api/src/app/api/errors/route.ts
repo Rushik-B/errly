@@ -183,12 +183,14 @@ export async function GET(request: NextRequest) {
     // Add header here
     return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400, headers: dashboardCorsHeaders });
   }
+  console.log(`[API GET /errors] Parsed page: ${page}, limit: ${limit}`); // <-- Log 1
 
   // Extract date range parameters
   const startDateParam = searchParams.get('startDate'); // <-- Should now be in scope
   const endDateParam = searchParams.get('endDate');   // <-- Should now be in scope
 
   // --- Calculate Bucket Interval based on Date Range --- 
+  console.log('[API GET /errors] Calculating bucket interval...'); // <-- Log 2
   const startDate = startDateParam ? new Date(startDateParam) : new Date(Date.now() - 24 * 60 * 60 * 1000); // Default 24h ago
   const endDate = endDateParam ? new Date(endDateParam) : new Date(); // Default now
 
@@ -203,10 +205,11 @@ export async function GET(request: NextRequest) {
   } else {
       console.warn('[API GET /errors] Invalid start or end date parameter received. Defaulting interval to hour.');
   }
-  // console.log(`[API GET /errors] Determined bucket interval: ${bucketInterval}`); // Remove log
+  console.log(`[API GET /errors] Determined bucket interval: ${bucketInterval}`); // <-- Log 3
   // --- End Calculate Bucket Interval --- 
 
   // Prepare RPC parameters - Explicitly use null for optional dates
+  console.log('[API GET /errors] Preparing rpcParams object...'); // <-- Log 4
   const rpcParams: { 
     project_id_param: string;
     start_date_param: string | null; // Type includes null
@@ -222,6 +225,7 @@ export async function GET(request: NextRequest) {
     limit_param: limit,
     bucket_interval_param: bucketInterval,
   };
+  console.log('[API GET /errors] Initial rpcParams created:', JSON.stringify(rpcParams)); // <-- Log 5
 
   // Add date parameters if they are valid dates, overriding null
   if (startDateParam) {
@@ -237,8 +241,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // console.log("[API GET /errors] Attempting RPC call with FULL params (null defaults):", rpcParams); // Remove log
-  console.log("[API GET /errors] EXACT RPC Params being sent:", JSON.stringify(rpcParams)); // <-- Add detailed log
+  console.log("[API GET /errors] Final rpcParams before try:", JSON.stringify(rpcParams)); // <-- Log 6 (Renamed from EXACT)
 
   try {
     // Call the NEW RPC function name with the original full params object
