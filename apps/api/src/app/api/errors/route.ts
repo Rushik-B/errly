@@ -83,10 +83,11 @@ export async function GET(request: NextRequest) {
   let projectId: string | null = null;
   let pageParam: string | null = null;
   let limitParam: string | null = null;
+  let searchParams: URLSearchParams; // <-- Declare searchParams outside
   // console.log("[API GET /errors] Attempting URL parsing and param extraction..."); // Remove log
   try {
     const url = new URL(request.url);
-    const { searchParams } = url;
+    searchParams = url.searchParams; // <-- Assign inside try
     projectId = searchParams.get('projectId');
     pageParam = searchParams.get('page');
     limitParam = searchParams.get('limit');
@@ -172,7 +173,6 @@ export async function GET(request: NextRequest) {
   // --- End Validate Project Ownership ---
   
   // <<<<<<<<<<<<<<<<<<<<< RESTORING RPC CALL BLOCK >>>>>>>>>>>>>>>>>>>>>
-  /* // Remove comment block start
   // console.log("[API GET /errors] Project ownership validated successfully."); // Logging removed
 
   // --- Fetch Aggregated Errors using RPC ---
@@ -185,8 +185,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Extract date range parameters
-  const startDateParam = searchParams.get('startDate');
-  const endDateParam = searchParams.get('endDate');
+  const startDateParam = searchParams.get('startDate'); // <-- Should now be in scope
+  const endDateParam = searchParams.get('endDate');   // <-- Should now be in scope
 
   // --- Calculate Bucket Interval based on Date Range --- 
   const startDate = startDateParam ? new Date(startDateParam) : new Date(Date.now() - 24 * 60 * 60 * 1000); // Default 24h ago
@@ -238,6 +238,7 @@ export async function GET(request: NextRequest) {
   }
 
   // console.log("[API GET /errors] Attempting RPC call with FULL params (null defaults):", rpcParams); // Remove log
+  console.log("[API GET /errors] EXACT RPC Params being sent:", JSON.stringify(rpcParams)); // <-- Add detailed log
 
   try {
     // Call the NEW RPC function name with the original full params object
@@ -287,7 +288,6 @@ export async function GET(request: NextRequest) {
     );
   }
   // --- End Fetch Aggregated Errors ---
-  */ // Remove outer comment block end
   // <<<<<<<<<<<<<<<<<<<<< END TEMPORARY COMMENT OUT >>>>>>>>>>>>>>>>>>>>>
 }
 
