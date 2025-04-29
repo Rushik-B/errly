@@ -225,14 +225,11 @@ export default function Dashboard() {
         <div className={`flex items-center justify-between transition-all duration-300 ${navWrapperClasses}`}>
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <span className="bg-white/10 rounded-full p-2">
-              <span className="sr-only">Logo</span>
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <circle cx="16" cy="16" r="16" fill="#101015" />
-                <circle cx="16" cy="16" r="7" stroke="#fff" strokeWidth="2" />
-                <rect x="7" y="23" width="18" height="3" rx="1.5" fill="#fff" />
-              </svg>
-            </span>
+            <img 
+              src="/lovable-uploads/errly-logo.png" 
+              alt="Errly Logo" 
+              className="h-10 w-10 rounded-full object-cover p-1 bg-white/10"
+            />
             <span className="ml-1 text-2xl font-semibold tracking-tight text-white">
               Errly
             </span>
