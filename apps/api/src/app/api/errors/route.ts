@@ -171,6 +171,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
   // --- End Validate Project Ownership ---
+  console.log(`[API GET /errors] Project validation successful for project ${projectId}. Proceeding to params...`); // <-- ADD THIS LOG
   
   // <<<<<<<<<<<<<<<<<<<<< RESTORING RPC CALL BLOCK >>>>>>>>>>>>>>>>>>>>>
   // console.log("[API GET /errors] Project ownership validated successfully."); // Logging removed
