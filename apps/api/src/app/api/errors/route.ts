@@ -242,7 +242,10 @@ export async function GET(request: NextRequest) {
     if (rpcError) {
       // KEEP this error log
       console.error('Error calling get_aggregated_errors_trend_v1 RPC:', rpcError.message);
-      return NextResponse.json({ error: 'Failed to fetch aggregated errors', details: rpcError.message }, { status: 500, headers: dashboardCorsHeaders });
+      return NextResponse.json(
+        { error: 'Failed to fetch aggregated errors', details: rpcError.message }, 
+        { status: 500, headers: dashboardCorsHeaders }
+      );
     }
 
     // Determine the total count of unique groups from the new output column name
@@ -273,7 +276,10 @@ export async function GET(request: NextRequest) {
         errorMessage = err.message;
     }
     console.error('Unexpected error fetching aggregated errors:', errorMessage);
-    return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
+    return NextResponse.json(
+        { error: errorMessage }, 
+        { status: 500, headers: dashboardCorsHeaders }
+    );
   }
   // --- End Fetch Aggregated Errors ---
   */ // Remove outer comment block end
