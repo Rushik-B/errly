@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism/index.js';
 import DocsSidebar from '../components/DocsSidebar.tsx';
+import NavBar from '../components/NavBar.tsx';
 
 // Simple horizontal rule for separation
 const Hr = () => <hr className="my-8 border-gray-700/50" />;
@@ -342,8 +343,9 @@ Errly.report(:error, 'Database connection lost')`;
    * HELPER: COPY TO CLIPBOARD
    * ------------------------------------------------------------------*/
   const handleCopy = (text: string, id: string) => {
-    if (typeof window !== 'undefined' && window.navigator?.clipboard) {
-      window.navigator.clipboard.writeText(text).then(() => {
+    // Check if clipboard API is available and we are in a secure context
+    if (typeof window !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
         setCopiedBlock(id);
         setTimeout(() => setCopiedBlock(null), 1500);
       }).catch((err: unknown) => {
@@ -359,13 +361,14 @@ Errly.report(:error, 'Database connection lost')`;
    * ==================================================================*/
   return (
     <div className="relative bg-gradient-to-br from-gray-950 via-black to-blue-950/60 text-gray-300 min-h-screen">
+      <NavBar />
       <div className="absolute inset-0 overflow-hidden -z-10">
         <div className="absolute top-0 left-0 w-96 h-96 bg-blue-700/30 rounded-full blur-[150px] opacity-50 -translate-x-1/2 -translate-y-1/2" />
         <div className="absolute bottom-0 right-0 w-80 h-80 bg-blue-600/30 rounded-full blur-[120px] opacity-40 translate-x-1/4 translate-y-1/4" />
       </div>
 
-      <div className="relative container mx-auto max-w-7xl flex flex-col md:flex-row gap-8 px-4 py-12 z-10">
-        <aside className="w-full md:w-auto flex-shrink-0 sticky top-8 self-start">
+      <div className="relative container mx-auto max-w-7xl flex flex-col md:flex-row gap-8 px-4 pt-32 pb-24 z-10">
+        <aside className="w-full md:w-auto flex-shrink-0 sticky top-20 self-start">
           <DocsSidebar />
         </aside>
         <main className="flex-1 min-w-0">
