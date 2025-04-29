@@ -173,22 +173,24 @@ export async function GET(request: NextRequest) {
   console.log(`[API GET /errors] Determined bucket interval: ${bucketInterval}`);
   // --- End Calculate Bucket Interval --- 
 
-  // Prepare RPC parameters
+  // Prepare RPC parameters - Explicitly use null for optional dates
   const rpcParams: { 
     project_id_param: string;
-    start_date_param?: string;
-    end_date_param?: string;
+    start_date_param: string | null; // Type includes null
+    end_date_param: string | null;   // Type includes null
     page_param: number;
     limit_param: number;
-    bucket_interval_param: string; // Add the new parameter
+    bucket_interval_param: string;
   } = {
     project_id_param: projectId,
+    start_date_param: null, // Default to null
+    end_date_param: null,   // Default to null
     page_param: page,
     limit_param: limit,
-    bucket_interval_param: bucketInterval, // Pass the calculated interval
+    bucket_interval_param: bucketInterval,
   };
 
-  // Add date parameters if they are valid dates
+  // Add date parameters if they are valid dates, overriding null
   if (startDateParam) {
     const startDate = new Date(startDateParam);
     if (!isNaN(startDate.getTime())) {
@@ -202,19 +204,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // console.log("[API GET /errors] Prepared RPC params, entering RPC try block..."); // Logging removed
+  console.log("[API GET /errors] Attempting RPC call with FULL params (null defaults):", rpcParams);
 
   try {
     // console.log("[API GET /errors] Attempting main RPC call..."); // Logging removed
-
-    // <<< REVERT PARAM SIMPLIFICATION >>>
-    // const simplifiedRpcParams = {
-    //     project_id_param: projectId,
-    //     bucket_interval_param: bucketInterval,
-    //     // Temporarily omitting: start_date_param, end_date_param, page_param, limit_param
-    // };
-    // console.log("[API GET /errors] Attempting RPC call with SIMPLIFIED params:", simplifiedRpcParams);
-    console.log("[API GET /errors] Attempting RPC call with FULL params:", rpcParams);
 
     // Call the NEW RPC function name with the original full params object
     const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
