@@ -63,15 +63,20 @@ interface AggregatedErrorGroupV2 { // Renamed interface for clarity
 export async function GET(request: NextRequest) {
   console.log("[API GET /errors] Handler started."); // Log start
 
-  // <<<<<<<<<<<<<<<<<<<<< TEMPORARILY COMMENTED OUT >>>>>>>>>>>>>>>>>>>>>>>
-  /*
+  // <<<<<<<<<<<<<<<<<<<<< UNCOMMENTING AUTH BLOCK >>>>>>>>>>>>>>>>>>>>>>>
+  // /* // Keep outer comment block for now
   // Use JWT validation
   const user = await getUserFromToken(request);
 
   if (!user) { // Check for user object
+    // Add specific log for this failure
+    console.warn("[API GET /errors] Authentication failed or no user found from token."); 
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
+  console.log("[API GET /errors] User authenticated:", user.id); // Log success
   
+  // <<<<<<<<<<<<<<<<<<<<< REST REMAINS COMMENTED >>>>>>>>>>>>>>>>>>>>>>>
+  /* // Inner comment block starts here
   // This is the auth user ID (X)
   const authUserId = user.id;
   let publicUserId: string; // To store the public user ID (Y)
@@ -253,7 +258,7 @@ export async function GET(request: NextRequest) {
   // <<<<<<<<<<<<<<<<<<<<< END TEMPORARY COMMENT OUT >>>>>>>>>>>>>>>>>>>>>
 
   // Return a simple success message for now
-  return NextResponse.json({ message: "GET /api/errors handler reached successfully!" });
+  return NextResponse.json({ message: "GET /api/errors handler reached successfully (after auth check)!" });
 }
 
 // POST /api/errors - Record a new error (using API Key authentication)
