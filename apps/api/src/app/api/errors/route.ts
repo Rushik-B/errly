@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
   }
   console.log("[API GET /errors] User authenticated:", user.id); // Log success
   
-  // <<<<<<<<<<<<<<<<<<<<< REST REMAINS COMMENTED >>>>>>>>>>>>>>>>>>>>>>>
-  /* // Inner comment block starts here
+  // <<<<<<<<<<<<<<<<<<<<< UNCOMMENTING PARAMS & VALIDATION >>>>>>>>>>>>>>>>>
+  /* // Inner comment block starts here - REMOVE THIS LINE
   // This is the auth user ID (X)
   const authUserId = user.id;
   let publicUserId: string; // To store the public user ID (Y)
@@ -88,10 +88,13 @@ export async function GET(request: NextRequest) {
   const limitParam = searchParams.get('limit');
 
   if (!projectId) {
+    // Add log
+    console.warn("[API GET /errors] Missing projectId query parameter.");
     return NextResponse.json({ error: 'Missing required query parameter: projectId' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
   // --- Get Public User ID (Y) --- 
+  console.log("[API GET /errors] Attempting to get public user ID..."); // Log before call
   try {
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users') // Query public.users table
@@ -119,6 +122,7 @@ export async function GET(request: NextRequest) {
   // --- End Get Public User ID --- 
 
   // --- Validate Project Ownership using Public User ID (Y) ---
+  console.log("[API GET /errors] Attempting project validation..."); // Log before call
   try {
     const { data: project, error: projectError } = await supabaseAdmin
       .from('projects')
@@ -138,7 +142,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
     // If we reach here, the user (Y) owns the project (ID: projectId)
-     // console.log(`[API GET /errors] Project ${projectId} ownership validated for public user ${publicUserId}. Fetching errors...`); // Log removed
+    console.log(`[API GET /errors] Project ${projectId} ownership validated for public user ${publicUserId}.`);
   } catch (err: unknown) {
     let errorMessage = 'An unexpected error occurred during project validation';
     if (err instanceof Error) {
@@ -148,6 +152,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
   // --- End Validate Project Ownership ---
+  
+  // <<<<<<<<<<<<<<<<<<<<< RPC CALL REMAINS COMMENTED >>>>>>>>>>>>>>>>>>>>>
+  /* // Keep this comment block start
   // console.log("[API GET /errors] Project ownership validated successfully."); // Logging removed
 
   // --- Fetch Aggregated Errors using RPC ---
@@ -258,7 +265,7 @@ export async function GET(request: NextRequest) {
   // <<<<<<<<<<<<<<<<<<<<< END TEMPORARY COMMENT OUT >>>>>>>>>>>>>>>>>>>>>
 
   // Return a simple success message for now
-  return NextResponse.json({ message: "GET /api/errors handler reached successfully (after auth check)!" });
+  return NextResponse.json({ message: "GET /api/errors handler reached successfully (after validation)!" });
 }
 
 // POST /api/errors - Record a new error (using API Key authentication)
