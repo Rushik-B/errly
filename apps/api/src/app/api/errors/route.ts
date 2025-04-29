@@ -20,6 +20,7 @@ const sdkCorsHeaders = {
 };
 
 // Restore OPTIONS handler - checks requested method
+//hello2
 export async function OPTIONS(request: NextRequest) {
   const requestMethod = request.headers.get('access-control-request-method');
   console.log('[API Errors OPTIONS] Requested Method:', requestMethod); 
