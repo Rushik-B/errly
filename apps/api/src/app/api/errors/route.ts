@@ -94,12 +94,14 @@ export async function GET(request: NextRequest) {
   } catch (urlError: unknown) {
       const errorMsg = (urlError instanceof Error) ? urlError.message : String(urlError);
       console.error("[API GET /errors] CRITICAL ERROR during URL parsing:", errorMsg);
-      return NextResponse.json({ error: 'Failed to parse request URL', details: errorMsg }, { status: 500 }); // Return 500 immediately
+      // Add header here
+      return NextResponse.json({ error: 'Failed to parse request URL', details: errorMsg }, { status: 500, headers: dashboardCorsHeaders }); 
   }
   // --- End Extract query parameters ---
 
   if (!projectId) {
     // console.warn("[API GET /errors] Missing projectId query parameter."); // Remove log
+    // Add CORS headers here too for consistency
     return NextResponse.json({ error: 'Missing required query parameter: projectId' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
@@ -122,6 +124,7 @@ export async function GET(request: NextRequest) {
       // console.error(`[API GET /errors] Public user profile not found for auth ID ${user.id}.`); // Revert
       console.error(`[API GET /errors] Public user profile not found for auth ID ${authUserId}.`);
       // If the public profile doesn't exist, they cannot own any projects.
+      // Add CORS headers here too
       return NextResponse.json({ error: 'User profile not found, cannot access projects' }, { status: 404, headers: dashboardCorsHeaders });
     }
     publicUserId = userData.id; // Store the correct public user ID (Y)
@@ -153,6 +156,7 @@ export async function GET(request: NextRequest) {
     if (!project) {
       // If project is null, it means either it doesn't exist or doesn't belong to THIS user (with publicUserId Y)
       console.warn(`[API GET /errors] Project ${projectId} not found or access denied for public user ${publicUserId}.`);
+      // Add CORS headers here too
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
     // If we reach here, the user (Y) owns the project (ID: projectId)
@@ -176,6 +180,7 @@ export async function GET(request: NextRequest) {
   const limit = limitParam ? parseInt(limitParam, 10) : 20; // Default limit
 
   if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
+    // Add header here
     return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
