@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     // console.warn("[API GET /errors] Authentication failed or no user found from token."); // Remove log
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
-  // console.log("[API GET /errors] User authenticated:", user.id); // Remove log
+  console.log(`[API GET /errors] User authentication successful for user ID: ${user.id}. Starting main logic...`); // <-- ADD ULTRA-EARLY LOG
   
   // /* // Remove inner comment block start
   // This is the auth user ID (X)
