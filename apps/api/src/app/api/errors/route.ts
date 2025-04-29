@@ -42,7 +42,6 @@ export async function OPTIONS(request: NextRequest) {
 
 // Define the Zod schema for the request body
 const errorSchema = z.object({
-  apiKey: z.string().uuid({ message: "Invalid API Key format" }), // Assuming API keys are UUIDs
   message: z.string().min(1, { message: "Message cannot be empty" }),
   stackTrace: z.string().optional(), // Optional string
   metadata: z.record(z.unknown()).optional(), // Optional object with unknown values
@@ -247,6 +246,25 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   console.log("--- Received request in /api/errors ---");
   try {
+    // 0. Get API Key from header
+    const apiKeyHeader = request.headers.get('X-Api-Key');
+    if (!apiKeyHeader) {
+        console.error("API Key header (X-Api-Key) missing");
+        return NextResponse.json(
+            { error: 'API Key header (X-Api-Key) is required' },
+            { status: 401, headers: sdkCorsHeaders }
+        );
+    }
+    // Optional: Add format validation if keys are always UUIDs
+    // const apiKeyUuidSchema = z.string().uuid();
+    // if (!apiKeyUuidSchema.safeParse(apiKeyHeader).success) {
+    //    console.error("Invalid API Key format in header");
+    //     return NextResponse.json(
+    //         { error: 'Invalid API Key format in header' },
+    //         { status: 400, headers: sdkCorsHeaders }
+    //     );
+    // }
+
     // 1. Parse the incoming request body
     let body: unknown;
     try {
@@ -271,13 +289,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { apiKey, message, stackTrace, metadata, level } = validationResult.data;
+    // Now validationResult.data contains message, stackTrace, metadata, level
+    const { message, stackTrace, metadata, level } = validationResult.data;
 
-    // 2. Validate the API Key
+    // 2. Validate the API Key (using the key from the header)
     const { data: projectData, error: projectError } = await supabaseServiceClient
       .from('projects')
       .select('id')
-      .eq('api_key', apiKey)
+      .eq('api_key', apiKeyHeader) // <-- Use apiKeyHeader here
       .single();
 
     if (projectError || !projectData) {

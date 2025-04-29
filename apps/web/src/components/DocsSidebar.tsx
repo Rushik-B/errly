@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { cn } from '@/lib/utils'; // Assuming you have a cn utility for classnames
+// Using relative path as a workaround for potential linter path alias issue
+import { cn } from '../lib/utils.ts'; 
 
 interface NavItem {
   id: string;
@@ -7,12 +8,15 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: 'introduction', title: 'Introduction' },
-  { id: 'installation', title: 'Installation' },
-  { id: 'setup', title: 'Setup' },
-  { id: 'usage', title: 'Usage' },
-  { id: 'framework-examples', title: 'Framework Examples' },
-  { id: 'summary', title: 'Summary' },
+  // { id: 'introduction', title: 'Introduction' }, // Removed - no matching section
+  { id: 'installation', title: 'Installation (SDK)' },
+  { id: 'quick-start', title: 'Quick Start (SDK)' }, // Combined quick start
+  // { id: 'setup-js', title: 'Setup (JS/TS)' }, // Removed
+  // { id: 'setup-python', title: 'Setup (Python)' }, // Removed
+  { id: 'framework-examples', title: 'SDK Examples' }, // Ensure ID matches section
+  { id: 'usage-examples', title: 'Usage (SDK)' },      // Ensure ID matches section
+  // { id: 'rest-api', title: 'REST API / Others' }, // Removed - no matching section
+  { id: 'summary', title: 'Quick Summary' },
 ];
 
 const DocsSidebar: React.FC = () => {
@@ -127,11 +131,17 @@ const DocsSidebar: React.FC = () => {
     e.preventDefault();
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      // Optionally force update active state, though scrollIntoView should trigger observer
-      // setActiveId(id);
-       // History push state is better for UX so back button works as expected
-       history.pushState(null, '', `#${id}`);
+      // Calculate offset considering potential sticky header height (adjust value as needed)
+      const headerOffset = 90; // Example offset in pixels
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+      // Optionally update URL hash
+      // history.pushState(null, '', `#${id}`);
     }
   };
 

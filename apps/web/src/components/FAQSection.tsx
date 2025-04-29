@@ -11,22 +11,32 @@ const faqData = [
   {
     question: "What is Errly?",
     answer:
-      "Errly is an error alerting service that instantly notifies you via SMS when your app encounters critical errors, so you can respond immediately.",
+      "Errly is an error monitoring and alerting service. It captures errors from your applications, displays them on a dashboard with details and trends, and instantly notifies you via SMS for critical issues.",
   },
   {
-    question: "How easy is it to integrate Errly?",
+    question: "How do I integrate Errly?",
     answer:
-      "Integration takes less than 5 minutes. Just add one line of code to your app, and you're good to go.",
+      "Integration is simple. Create a project to get an API key, then use our lightweight SDK (currently JavaScript/npm) or send errors directly to our REST API endpoint using your key.",
   },
   {
-    question: "Does Errly support my stack?",
+    question: "What technologies does Errly support?",
     answer:
-      "Yes! Errly is language-agnostic and integrates easily via a simple REST API. Official SDKs coming soon.",
+      "Errly works with any technology that can send HTTP requests. We provide a JavaScript SDK for easy integration with Node.js and browser applications, and you can use our REST API for other languages (Python, Go, Ruby, etc.).",
   },
   {
-    question: "How does Errly prevent alert spam?",
+    question: "How does Errly handle noisy errors?",
     answer:
-      "Errly intelligently groups similar errors and uses rate-limiting to ensure alerts remain meaningful and actionable.",
+      "Errly automatically groups similar errors based on their message and level. We also implement rate limiting on SMS notifications for grouped errors to prevent alert fatigue, while still providing detailed logs in the dashboard.",
+  },
+  {
+    question: "What information can I see on the dashboard?",
+    answer:
+      "The dashboard shows a list of errors for each project, including the error message, level (error, warn, info, log), number of occurrences (hits), trend sparklines, metadata, stack traces, and the time they were received. You can filter by level, search by message, and select different time ranges.",
+  },
+  {
+    question: "How do I configure SMS notifications?",
+    answer:
+      "You can add and verify your phone number in your user profile. Currently, notifications are sent for errors logged with the 'error' level. More granular controls are planned for the future.",
   },
   {
     question: "Can I cancel anytime?",
