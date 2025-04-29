@@ -8,19 +8,20 @@ import {
     CheckCircleIcon,
     BellSlashIcon,
     ArrowTopRightOnSquareIcon, // For external links like GitHub
-    LinkIcon // For Copy Link/cURL
+    LinkIcon, // For Copy Link/cURL
+    DocumentDuplicateIcon // New Icon for Copy Full Message
 } from '@heroicons/react/24/outline';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-// Correct import for the style
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+// Correct import for the style - use commonjs import for styles typically
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import toast, { Toaster } from 'react-hot-toast';
 import styles from './ErrorDetailDrawer.module.css';
 import { useAuth } from '../context/AuthContext.tsx';
-// Assuming this is the correct relative path based on file structure
-import { Button } from '../../components/ui/button';
+// Corrected relative path
+import { Button } from '../components/ui/button';
 
 // Import the mock data flag
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+const USE_MOCK_DATA = typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_MOCK_DATA === 'true';
 
 // --- Updated ApiError Interface --- (Matches drawer spec)
 interface ApiError {
@@ -74,7 +75,7 @@ const copyToClipboard = (text: string | null | undefined, successMessage: string
   if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(text)
         .then(() => toast.success(successMessage))
-        .catch((err) => { // No need for 'any' type if not used
+        .catch((err: Error) => { // Add Error type
             console.error('Failed to copy: ', err);
             toast.error('Failed to copy!');
         });
@@ -86,7 +87,7 @@ const copyToClipboard = (text: string | null | undefined, successMessage: string
 };
 
 // --- Fetch Helper (Unchanged) ---
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) || '/api';
 async function fetchWithErrorHandling(url: string, options?: RequestInit, token?: string | null): Promise<any> {
     const headers = new Headers(options?.headers);
     if (token) {
@@ -206,6 +207,7 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
 
   // Handle Escape key press (Fixed event.key access & window check)
   useEffect(() => {
+    // Check if running in a browser environment
     if (typeof window === 'undefined') return;
 
     const handleEscape = (event: KeyboardEvent) => {
@@ -451,6 +453,17 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
                    <BellSlashIcon className="w-5 h-5 mr-1" />
                    {isUpdating ? 'Muting...' : 'Mute 24h'}
                 </button>
+                {/* Added Copy Full Message Button */}
+                <button
+                    onClick={() => copyToClipboard(displayError.message, 'Full error message copied!')}
+                    className={`${styles.actionButton} ${styles.copyMessageButton}`}
+                    title="Copy Full Error Message"
+                    disabled={isUpdating} // Disable while other actions are in progress
+                >
+                    <DocumentDuplicateIcon className="w-5 h-5" /> 
+                    {/* Icon only, tooltip provides text */}
+                </button>
+                {/* End Added Button */}
                  <button onClick={onClose} className={styles.closeButton} aria-label="Close drawer" disabled={isUpdating}>
                    <XMarkIcon className="w-6 h-6" />
                  </button>

@@ -41,9 +41,9 @@ import "react-datepicker/dist/react-datepicker.css";
 import Sparkline from '../../../components/ui/Sparkline.tsx';
 import LogVolumeChart from '../../../components/ui/LogVolumeChart.tsx';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Card, CardContent } from '../../../components/ui/card';
 
 // --- Interfaces --- 
 interface Project {
@@ -230,7 +230,7 @@ for (let i = 0; i < totalHours; i++) {
     let stackTrace: string | null = null;
     switch (level) {
         case 'error': 
-            message = ['TypeError: x is undefined', 'Database timeout', 'NullReferenceException'][Math.floor(Math.random() * 3)];
+            message = ['INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m * Running on all addresses (0.0.0.0) * Running on http://127.0.0.1:8080 * Running on http://10.43.248.134:8080', 'Database timeout', 'NullReferenceException'][Math.floor(Math.random() * 3)];
             metadata = { userId: `usr_${index}`, path: '/mock/path' };
             stackTrace = `at mockFunction (mockFile.js:${Math.floor(10 + Math.random() * 90)})\nat main (server.js:42)`;
             break;
@@ -266,7 +266,7 @@ for (let i = 0; i < totalHours; i++) {
 }
 
 // Assign the generated data to the constants used by the component
-const MOCK_LOG_VOLUME_DATA: ChartDataPoint[] = mockDataPoints; 
+const MOCK_LOG_VOLUME_DATA: LogVolumeDataPoint[] = mockDataPoints; 
 const MOCK_ERRORS: ApiError[] = generatedMockErrors.sort((a, b) => 
     new Date(b.received_at).getTime() - new Date(a.received_at).getTime()
 ); // Sort errors newest first for initial display
@@ -740,7 +740,7 @@ export default function ProjectErrorsPage() {
                    type="search"
                    placeholder="Filter by message…"
                    value={searchTerm}
-                   onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
+                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                    className="w-full rounded-full border border-white/10 bg-white/5 pl-10 pr-3 py-1.5 text-gray-200 placeholder-gray-500 backdrop-blur-md md:w-[240px] lg:w-[320px]"
                  />
               </div>
@@ -963,9 +963,9 @@ export default function ProjectErrorsPage() {
                             <td className="whitespace-nowrap px-3 py-3 align-top text-gray-400 font-mono text-xs" title={new Date(error.received_at).toISOString()}>
                               {formattedReceivedAt}
                             </td>
-                            {/* Message (Truncate) */}
+                            {/* Message (Allow Wrap) */}
                             <td className="px-3 py-3 align-top text-gray-100">
-                              <div className="truncate" title={error.message}>
+                              <div className="whitespace-normal break-words" title={error.message}> 
                                 {error.message}
                               </div>
                             </td>
