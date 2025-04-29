@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   // <<<<<<<<<<<<<<<<<<<<< UNCOMMENTING PARAMS & VALIDATION >>>>>>>>>>>>>>>>>
   /* // Inner comment block starts here - REMOVE THIS LINE
   // This is the auth user ID (X)
-  const authUserId = user.id;
+  // const authUserId = user.id; // <-- Temporarily comment out this assignment
   let publicUserId: string; // To store the public user ID (Y)
 
   // --- Extract query parameters (with extra logging/try-catch) ---
@@ -112,19 +112,23 @@ export async function GET(request: NextRequest) {
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users') // Query public.users table
       .select('id') // Select its primary key (Y)
-      .eq('supabase_auth_id', user.id) // Match using the auth ID (X)
+      // .eq('supabase_auth_id', authUserId) // Match using the auth ID (X) <-- Will need to use user.id directly later
+      .eq('supabase_auth_id', user.id) // Use user.id directly for now
       .single();
 
     if (userError) {
+      // console.error(`[API GET /errors] Error fetching public user ID for auth ID ${authUserId}:`, userError.message); <-- Use user.id
       console.error(`[API GET /errors] Error fetching public user ID for auth ID ${user.id}:`, userError.message);
       throw new Error('Failed to find user profile.'); 
     }
     if (!userData) {
+      // console.error(`[API GET /errors] Public user profile not found for auth ID ${authUserId}.`); <-- Use user.id
       console.error(`[API GET /errors] Public user profile not found for auth ID ${user.id}.`);
       // If the public profile doesn't exist, they cannot own any projects.
       return NextResponse.json({ error: 'User profile not found, cannot access projects' }, { status: 404, headers: dashboardCorsHeaders });
     }
-    const publicUserId = userData.id; // Store the correct public user ID (Y)
+    publicUserId = userData.id; // Store the correct public user ID (Y)
+    // console.log(`[API GET /errors] Found public user ID ${publicUserId} for auth ID ${authUserId}. Validating project ${projectId}...`); <-- Use user.id
     console.log(`[API GET /errors] Found public user ID ${publicUserId} for auth ID ${user.id}. Validating project ${projectId}...`);
 
   } catch (err: unknown) {
