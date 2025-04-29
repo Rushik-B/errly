@@ -6,7 +6,7 @@ import { z } from 'zod' // Import Zod
 
 // Restore dashboard-specific CORS headers (for GET requests)
 const dashboardCorsHeaders = {
-  'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'http://localhost:8080', 
+  'Access-Control-Allow-Origin': 'https://errly.vercel.app', // <-- Hardcode frontend origin
   'Access-Control-Allow-Methods': 'GET, OPTIONS', 
   'Access-Control-Allow-Headers': 'Content-Type, Authorization', 
   'Access-Control-Allow-Credentials': 'true',
