@@ -61,38 +61,36 @@ interface AggregatedErrorGroupV2 { // Renamed interface for clarity
 
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
 export async function GET(request: NextRequest) {
-  console.log("[API GET /errors] Handler started."); // Log start
+  // console.log("[API GET /errors] Handler started."); // Remove log
 
-  // <<<<<<<<<<<<<<<<<<<<< UNCOMMENTING AUTH BLOCK >>>>>>>>>>>>>>>>>>>>>>>
-  // /* // Keep outer comment block for now
+  // <<<<<<<<<<<<<<<<<<<<< RESTORING FULL LOGIC >>>>>>>>>>>>>>>>>>>>>>>
+  // /* // Remove outer comment block start
   // Use JWT validation
   const user = await getUserFromToken(request);
 
   if (!user) { // Check for user object
-    // Add specific log for this failure
-    console.warn("[API GET /errors] Authentication failed or no user found from token."); 
+    // console.warn("[API GET /errors] Authentication failed or no user found from token."); // Remove log
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: dashboardCorsHeaders });
   }
-  console.log("[API GET /errors] User authenticated:", user.id); // Log success
+  // console.log("[API GET /errors] User authenticated:", user.id); // Remove log
   
-  // <<<<<<<<<<<<<<<<<<<<< UNCOMMENTING PARAMS & VALIDATION >>>>>>>>>>>>>>>>>
-  /* // Inner comment block starts here - REMOVE THIS LINE
+  // /* // Remove inner comment block start
   // This is the auth user ID (X)
-  // const authUserId = user.id; // <-- Temporarily comment out this assignment
+  const authUserId = user.id; // Restore assignment
   let publicUserId: string; // To store the public user ID (Y)
 
-  // --- Extract query parameters (with extra logging/try-catch) ---
+  // --- Extract query parameters --- 
   let projectId: string | null = null;
   let pageParam: string | null = null;
   let limitParam: string | null = null;
-  console.log("[API GET /errors] Attempting URL parsing and param extraction...");
+  // console.log("[API GET /errors] Attempting URL parsing and param extraction..."); // Remove log
   try {
     const url = new URL(request.url);
     const { searchParams } = url;
     projectId = searchParams.get('projectId');
     pageParam = searchParams.get('page');
     limitParam = searchParams.get('limit');
-    console.log("[API GET /errors] URL parsed. ProjectId=", projectId);
+    // console.log("[API GET /errors] URL parsed. ProjectId=", projectId); // Remove log
   } catch (urlError: unknown) {
       const errorMsg = (urlError instanceof Error) ? urlError.message : String(urlError);
       console.error("[API GET /errors] CRITICAL ERROR during URL parsing:", errorMsg);
@@ -101,35 +99,34 @@ export async function GET(request: NextRequest) {
   // --- End Extract query parameters ---
 
   if (!projectId) {
-    // Add log
-    console.warn("[API GET /errors] Missing projectId query parameter.");
+    // console.warn("[API GET /errors] Missing projectId query parameter."); // Remove log
     return NextResponse.json({ error: 'Missing required query parameter: projectId' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
   // --- Get Public User ID (Y) --- 
-  console.log("[API GET /errors] Attempting to get public user ID..."); // Log before call
+  // console.log("[API GET /errors] Attempting to get public user ID..."); // Remove log
   try {
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users') // Query public.users table
       .select('id') // Select its primary key (Y)
-      // .eq('supabase_auth_id', authUserId) // Match using the auth ID (X) <-- Will need to use user.id directly later
-      .eq('supabase_auth_id', user.id) // Use user.id directly for now
+      // .eq('supabase_auth_id', user.id) // Use user.id directly for now <-- Revert
+      .eq('supabase_auth_id', authUserId) // Use authUserId
       .single();
 
     if (userError) {
-      // console.error(`[API GET /errors] Error fetching public user ID for auth ID ${authUserId}:`, userError.message); <-- Use user.id
-      console.error(`[API GET /errors] Error fetching public user ID for auth ID ${user.id}:`, userError.message);
+      // console.error(`[API GET /errors] Error fetching public user ID for auth ID ${user.id}:`, userError.message); // Revert
+      console.error(`[API GET /errors] Error fetching public user ID for auth ID ${authUserId}:`, userError.message);
       throw new Error('Failed to find user profile.'); 
     }
     if (!userData) {
-      // console.error(`[API GET /errors] Public user profile not found for auth ID ${authUserId}.`); <-- Use user.id
-      console.error(`[API GET /errors] Public user profile not found for auth ID ${user.id}.`);
+      // console.error(`[API GET /errors] Public user profile not found for auth ID ${user.id}.`); // Revert
+      console.error(`[API GET /errors] Public user profile not found for auth ID ${authUserId}.`);
       // If the public profile doesn't exist, they cannot own any projects.
       return NextResponse.json({ error: 'User profile not found, cannot access projects' }, { status: 404, headers: dashboardCorsHeaders });
     }
     publicUserId = userData.id; // Store the correct public user ID (Y)
-    // console.log(`[API GET /errors] Found public user ID ${publicUserId} for auth ID ${authUserId}. Validating project ${projectId}...`); <-- Use user.id
-    console.log(`[API GET /errors] Found public user ID ${publicUserId} for auth ID ${user.id}. Validating project ${projectId}...`);
+    // console.log(`[API GET /errors] Found public user ID ${publicUserId} for auth ID ${user.id}. Validating project ${projectId}...`); // Revert
+    // console.log(`[API GET /errors] Found public user ID ${publicUserId} for auth ID ${authUserId}. Validating project ${projectId}...`); // Remove log
 
   } catch (err: unknown) {
     const errorMessage = (err instanceof Error) ? err.message : 'Failed to retrieve user information';
@@ -139,7 +136,7 @@ export async function GET(request: NextRequest) {
   // --- End Get Public User ID --- 
 
   // --- Validate Project Ownership using Public User ID (Y) ---
-  console.log("[API GET /errors] Attempting project validation..."); // Log before call
+  // console.log("[API GET /errors] Attempting project validation..."); // Remove log
   try {
     const { data: project, error: projectError } = await supabaseAdmin
       .from('projects')
@@ -159,7 +156,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404, headers: dashboardCorsHeaders });
     }
     // If we reach here, the user (Y) owns the project (ID: projectId)
-    console.log(`[API GET /errors] Project ${projectId} ownership validated for public user ${publicUserId}.`);
+    // console.log(`[API GET /errors] Project ${projectId} ownership validated for public user ${publicUserId}.`); // Remove log
   } catch (err: unknown) {
     let errorMessage = 'An unexpected error occurred during project validation';
     if (err instanceof Error) {
@@ -170,8 +167,8 @@ export async function GET(request: NextRequest) {
   }
   // --- End Validate Project Ownership ---
   
-  // <<<<<<<<<<<<<<<<<<<<< RPC CALL REMAINS COMMENTED >>>>>>>>>>>>>>>>>>>>>
-  /* // Keep this comment block start
+  // <<<<<<<<<<<<<<<<<<<<< RESTORING RPC CALL BLOCK >>>>>>>>>>>>>>>>>>>>>
+  /* // Remove comment block start
   // console.log("[API GET /errors] Project ownership validated successfully."); // Logging removed
 
   // --- Fetch Aggregated Errors using RPC ---
@@ -201,7 +198,7 @@ export async function GET(request: NextRequest) {
   } else {
       console.warn('[API GET /errors] Invalid start or end date parameter received. Defaulting interval to hour.');
   }
-  console.log(`[API GET /errors] Determined bucket interval: ${bucketInterval}`); // Keep this log
+  // console.log(`[API GET /errors] Determined bucket interval: ${bucketInterval}`); // Remove log
   // --- End Calculate Bucket Interval --- 
 
   // Prepare RPC parameters - Explicitly use null for optional dates
@@ -235,7 +232,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  console.log("[API GET /errors] Attempting RPC call with FULL params (null defaults):", rpcParams);
+  // console.log("[API GET /errors] Attempting RPC call with FULL params (null defaults):", rpcParams); // Remove log
 
   try {
     // Call the NEW RPC function name with the original full params object
@@ -243,6 +240,7 @@ export async function GET(request: NextRequest) {
       .rpc('get_aggregated_errors_trend_v1', rpcParams); // <-- USE FULL rpcParams
 
     if (rpcError) {
+      // KEEP this error log
       console.error('Error calling get_aggregated_errors_trend_v1 RPC:', rpcError.message);
       return NextResponse.json({ error: 'Failed to fetch aggregated errors', details: rpcError.message }, { status: 500, headers: dashboardCorsHeaders });
     }
@@ -278,11 +276,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
   // --- End Fetch Aggregated Errors ---
-  */
+  */ // Remove outer comment block end
   // <<<<<<<<<<<<<<<<<<<<< END TEMPORARY COMMENT OUT >>>>>>>>>>>>>>>>>>>>>
-
-  // Return a simple success message for now
-  return NextResponse.json({ message: "GET /api/errors handler reached successfully (after validation)!" });
 }
 
 // POST /api/errors - Record a new error (using API Key authentication)
