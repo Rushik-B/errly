@@ -61,7 +61,7 @@ interface AggregatedErrorGroupV2 { // Renamed interface for clarity
 
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
 export async function GET(request: NextRequest) {
-  console.log("[API GET /errors] Handler started."); // Log start
+  // console.log("[API GET /errors] Handler started."); // Logging removed
 
   // Use JWT validation
   const user = await getUserFromToken(request);
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
   // --- End Validate Project Ownership ---
-  console.log("[API GET /errors] Project ownership validated successfully."); // Log after validation
+  // console.log("[API GET /errors] Project ownership validated successfully."); // Logging removed
 
   // --- Fetch Aggregated Errors using RPC ---
   const page = pageParam ? parseInt(pageParam, 10) : 1;
@@ -202,31 +202,22 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  console.log("[API GET /errors] Prepared RPC params, entering RPC try block..."); // Log before try
+  // console.log("[API GET /errors] Prepared RPC params, entering RPC try block..."); // Logging removed
 
   try {
-    // <<< TEMPORARY DEBUGGING REMOVED >>>
-    // try {
-    //     console.log("[TEMP DEBUG] Attempting simplified RPC call...");
-    //     const testParams = { project_id_param: projectId }; // Only required param
-    //     const { data: testData, error: testError } = await supabaseAdmin
-    //       .rpc('get_aggregated_errors_trend_v1', testParams);
-    //     if (testError) {
-    //          console.error("[TEMP DEBUG] Simplified RPC call FAILED:", testError.message);
-    //     } else {
-    //          console.log("[TEMP DEBUG] Simplified RPC call SUCCEEDED."); // Don't log potentially large data
-    //     }
-    // } catch (simpleErr: unknown) {
-    //     const simpleErrMsg = (simpleErr instanceof Error) ? simpleErr.message : String(simpleErr);
-    //     console.error("[TEMP DEBUG] Simplified RPC call threw exception:", simpleErrMsg);
-    // }
-    // <<< END TEMPORARY DEBUGGING REMOVED >>>
+    // console.log("[API GET /errors] Attempting main RPC call..."); // Logging removed
 
-    console.log("[API GET /errors] Attempting main RPC call..."); // Log right before call
+    // <<< TEMPORARILY SIMPLIFY PARAMS >>>
+    const simplifiedRpcParams = {
+        project_id_param: projectId,
+        bucket_interval_param: bucketInterval,
+        // Temporarily omitting: start_date_param, end_date_param, page_param, limit_param
+    };
+    console.log("[API GET /errors] Attempting RPC call with SIMPLIFIED params:", simplifiedRpcParams);
 
-    // Call the NEW RPC function name
+    // Call the NEW RPC function name with simplified params
     const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
-      .rpc('get_aggregated_errors_trend_v1', rpcParams); // <-- Changed function name
+      .rpc('get_aggregated_errors_trend_v1', simplifiedRpcParams); // <-- USE SIMPLIFIED PARAMS
 
     if (rpcError) {
       console.error('Error calling get_aggregated_errors_trend_v1 RPC:', rpcError.message);
