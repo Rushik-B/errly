@@ -43,50 +43,150 @@ console.log('Errly SDK ready!');`;
    * QUICK-START SETUP – PYTHON
    * ------------------------------------------------------------------*/
   const pythonQuickStart = `# ---- Errly Quick-Start (copy & paste) ----
-import logging, requests, traceback
+import logging, requests, traceback, json
 
 ERRLY_API_KEY = "YOUR_ERRLY_PROJECT_API_KEY"
-ERRLY_ENDPOINT = "https://errly.yourdomain.com/api/errors"
+# Change this URL if your Errly API runs elsewhere (e.g., your production domain)
+ERRLY_ENDPOINT = "https://errly-api.vercel.app/api/errors"
 
 class _ErrlyHandler(logging.Handler):
     def emit(self, record):
         try:
-            payload = {"message": self.format(record), "level": record.levelname.lower()}
+            # Prepare the payload according to the API schema
+            payload = {
+                "apiKey": ERRLY_API_KEY,
+                "message": self.format(record),
+                "level": record.levelname.lower(),
+            }
             if record.exc_info:
                 payload["stackTrace"] = "".join(traceback.format_exception(*record.exc_info))
+
+            # Include metadata if present in 'extra'
+            metadata = getattr(record, 'extra_errly', {}) # Use a specific key for clarity
+            if isinstance(metadata, dict) and metadata:
+                payload["metadata"] = metadata
+
+            # Send the request with the API key in the body
             requests.post(
                 ERRLY_ENDPOINT,
-                headers={"X-Api-Key": ERRLY_API_KEY, "Content-Type": "application/json"},
+                headers={"Content-Type": "application/json"}, # No API key header needed
                 json=payload,
-                timeout=4
+                timeout=5 # Increased timeout slightly
             )
-        except Exception:
-            pass
+        except requests.exceptions.RequestException as e:
+            # Optionally log errors during sending to Errly itself (e.g., to stderr)
+            print(f"Failed to send log to Errly: {e}")
+        except Exception as e:
+            # Catch other potential errors during formatting/sending
+            print(f"Unexpected error in ErrlyHandler: {e}")
 
-logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(), _ErrlyHandler()])
+# Configure logging - add the Errly handler
+# Use a specific dictionary key ('extra_errly') for metadata to avoid conflicts
+# with standard logging 'extra' keys if any are used elsewhere.
+# Example usage: logging.error("Something failed", extra={'extra_errly': {'user': 123}})
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[logging.StreamHandler(), _ErrlyHandler()]
+)
 # ---- End Errly Setup ----`;
 
   /* --------------------------------------------------------------------
    * QUICK-START SETUP – RUBY (Hypothetical)
    * ------------------------------------------------------------------*/
   const rubyQuickStart = `# ---- Errly Quick-Start (copy & paste) ----
+# NOTE: This assumes a hypothetical 'errly-ruby-sdk' gem.
+# The actual implementation details might vary.
 require 'errly/sdk' # Hypothetical gem name
+require 'net/http'
+require 'json'
+require 'uri'
 
-Errly.configure do |config|
-  config.api_key = "YOUR_ERRLY_PROJECT_API_KEY"
-  # config.endpoint = "https://errly.yourdomain.com/api/errors" # Optional endpoint override
-  # config.environment = "production" # Optional environment tag
+module Errly
+  class Config
+    attr_accessor :api_key, :endpoint, :environment
+    def initialize
+      @endpoint = 'https://errly-api.vercel.app/api/errors' # Default endpoint
+      @environment = nil
+    end
+  end
+
+  class << self
+    attr_writer :configuration
+
+    def configuration
+      @configuration ||= Config.new
+    end
+
+    def configure
+      yield(configuration)
+    end
+
+    def report(level, message, metadata = {}, exception = nil)
+      return unless configuration.api_key
+
+      uri = URI.parse(configuration.endpoint)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = (uri.scheme == 'https')
+
+      request = Net::HTTP::Post.new(uri.request_uri,
+                                    'Content-Type' => 'application/json')
+
+      payload = {
+        apiKey: configuration.api_key, # API Key in the body
+        level: level.to_s.downcase,
+        message: message
+      }
+      payload[:metadata] = metadata if metadata && !metadata.empty?
+      if exception
+        payload[:stackTrace] = ([exception.message] + exception.backtrace).join("\n")
+      end
+      # Add environment if configured
+      payload[:metadata][:environment] = configuration.environment if configuration.environment && payload[:metadata]
+
+      request.body = payload.to_json
+
+      begin
+        response = http.request(request)
+        # Optional: Log failure to send to Errly? Maybe only in dev mode.
+        # puts "Errly response: #{response.code}" unless response.is_a?(Net::HTTPSuccess)
+      rescue StandardError => e
+        # puts "Failed to send report to Errly: #{e.message}" # Avoid noisy failures
+      end
+    end
+  end
+
+  # Simplified Logger integration (Hypothetical)
+  class Logger
+     # ... (A real SDK would likely wrap the standard Logger)
+     def error(message, metadata = {}, exception = nil)
+       Errly.report(:error, message, metadata, exception)
+       # Also call original logger if wrapping one
+     end
+     def warn(message, metadata = {})
+       Errly.report(:warn, message, metadata)
+     end
+     def info(message, metadata = {})
+       Errly.report(:info, message, metadata)
+     end
+     # ... etc
+  end
 end
 
-# Optional: Integrate with Rails logger or standard Ruby Logger
-# if defined?(Rails)
-#   Rails.logger = Errly::Logger.new(Rails.logger)
-# else
-#   require 'logger'
-#   $logger = Errly::Logger.new(Logger.new(STDOUT))
-# end
+# --- Configuration ---
+Errly.configure do |config|
+  config.api_key = "YOUR_ERRLY_PROJECT_API_KEY"
+  # config.endpoint = "YOUR_SELF_HOSTED_URL/api/errors" # Optional: Override endpoint
+  # config.environment = "production"
+end
 
-puts "Errly SDK ready!"
+# --- Usage Example (using the hypothetical Errly.report directly) ---
+# Errly.report(:error, "Something broke!", { user_id: 123 }, StandardError.new("Oops"))
+
+# --- Hypothetical Logger Setup ---
+# $logger = Errly::Logger.new # Or wrap existing logger
+# $logger.error("Failed via logger", { detail: 'abc' })
+
+puts "Errly SDK (Hypothetical) configured!"
 # ---- End Errly Setup ----`;
 
   /* --------------------------------------------------------------------
@@ -166,45 +266,58 @@ def process_payment(amount):
     except Exception as e:
         # THIS is where you use Errly logging:
         # Log the critical error details to Errly for instant alerting.
-        # This will ALSO log to standard handlers (like StreamHandler).
+        # Pass metadata using the 'extra_errly' key within the 'extra' dict.
         logging.exception(
             "Critical Payment Failure!",
             exc_info=e,
-            extra={'userId': 'user-123', 'amount': amount}
+            extra={'extra_errly': {'userId': 'user-123', 'amount': amount}}
         )
 
 process_payment(50000)`;
 
   const usagePythonWarn = `# Specify 'warn' as the level (using logging.warning)
-logging.warning("Configuration value looks suspicious.", extra={'config': 'old_value', 'userId': 'admin'})`;
+# Pass metadata via 'extra_errly'
+logging.warning(
+    "Configuration value looks suspicious.",
+    extra={'extra_errly': {'config': 'old_value', 'userId': 'admin'}}
+)`;
 
   const usagePythonInfo = `# Specify 'info' as the level (using logging.info)
-logging.info("User logged in successfully.", extra={'userId': 123})`;
+# Pass metadata via 'extra_errly'
+logging.info(
+    "User logged in successfully.",
+    extra={'extra_errly': {'userId': 123}}
+)`;
 
-  const usagePythonMetadata = `# You can log various types in the 'extra' dictionary
+  const usagePythonMetadata = `# You can log various types in the 'extra_errly' dictionary
 # The default level for logging.error or logging.exception is 'error'
-logging.error("User signup failed", extra={'email': 'test@example.com'})`;
+logging.error(
+    "User signup failed",
+    extra={'extra_errly': {'email': 'test@example.com'}}
+)`;
 
-  const usagePythonSimple = `# Simple message (default error level)
+  const usagePythonSimple = `# Simple message (default error level, no metadata)
 logging.error("Database connection lost")`;
 
   /* --------------------------------------------------------------------
    * USAGE EXAMPLES – RUBY (Hypothetical SDK)
    * ------------------------------------------------------------------*/
-  const usageRubyError = `# Assuming Errly is initialized, e.g., Errly.configure { |c| c.api_key = 'YOUR_KEY' }
+  const usageRubyError = `# Assuming Errly is configured as per the Quick-Start
+# This example uses the hypothetical Errly.report directly
 
 def process_payment(amount)
   begin
     # ... payment processing logic ...
     raise ArgumentError, 'Payment amount exceeds limit' if amount > 10000
-    Errly.logger.info('Payment successful!') # Regular logs are unaffected
+    puts "Payment successful!" # Regular logs/output are unaffected
   rescue => error
     # THIS is where you use Errly:
     # Log the critical error details to Errly for instant alerting.
-    Errly.logger.error(
-      'Critical Payment Failure!',
-      exception: error,
-      metadata: { user_id: 'user-123', amount: amount }
+    Errly.report(
+      :error, # Level
+      'Critical Payment Failure!', # Message
+      { user_id: 'user-123', amount: amount }, # Metadata hash
+      error # Exception object (for stack trace)
     )
   end
 end
@@ -212,17 +325,18 @@ end
 process_payment(50000)`;
 
   const usageRubyWarn = `# Specify 'warn' as the level
-Errly.logger.warn('Configuration value looks suspicious.', { config: 'old_value', user_id: 'admin' })`;
+Errly.report(:warn, 'Configuration value looks suspicious.', { config: 'old_value', user_id: 'admin' })`;
 
   const usageRubyInfo = `# Specify 'info' as the level
-Errly.logger.info('User logged in successfully.', { user_id: 123 })`;
+Errly.report(:info, 'User logged in successfully.', { user_id: 123 })`;
 
   const usageRubyMetadata = `# You can log various types in the metadata hash
-# Default level is likely 'error' when calling .error
-Errly.logger.error('User signup failed', { email: 'test@example.com' })`;
+# Default level is 'error' when calling .error on a hypothetical logger
+# Using Errly.report directly:
+Errly.report(:error, 'User signup failed', { email: 'test@example.com' })`;
 
-  const usageRubySimple = `# Simple message (default error level)
-Errly.logger.error('Database connection lost')`;
+  const usageRubySimple = `# Simple message (specify level, no metadata/exception)
+Errly.report(:error, 'Database connection lost')`;
 
   /* --------------------------------------------------------------------
    * HELPER: COPY TO CLIPBOARD
@@ -350,10 +464,10 @@ Errly.logger.error('Database connection lost')`;
               <strong>JavaScript:</strong> You can optionally provide a log level (<code className="bg-gray-700 px-1 py-0.5 rounded text-xs">'error'</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">'warn'</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">'info'</code>, or <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">'log'</code>), case-insensitive, as the first argument. If omitted, it defaults to <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">'error'</code>. The SDK also calls the corresponding original console method.
             </p>
              <p className="mb-6">
-              <strong>Python:</strong> Use standard Python <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">logging</code> methods (<code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.error()</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.warning()</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.info()</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.exception()</code>). Metadata can be passed via the <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">extra</code> argument. The Errly handler forwards these to the API.
+              <strong>Python:</strong> Use standard Python <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">logging</code> methods (<code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.error()</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.warning()</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.info()</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.exception()</code>). Metadata can be passed via the <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">extra</code> argument, nested within a dictionary under the key <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">'extra_errly'</code> (e.g., <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">extra=&#123;'extra_errly': &#123;'user': 123&#125;&#125;</code>). The Errly handler forwards these to the API.
             </p>
              <p className="mb-6">
-              <strong>Ruby (Hypothetical):</strong> Use the Errly logger methods (<code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.error</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.warn</code>, <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">.info</code>). Metadata can typically be passed as a hash.
+              <strong>Ruby (Hypothetical):</strong> Use methods like <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">Errly.report(:level, message, metadata_hash, exception_object)</code> or integrate with a custom logger. Metadata is passed as a standard Ruby hash. The API key is sent in the request body.
             </p>
 
             {/* Usage Language Tabs */}
