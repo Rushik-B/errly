@@ -9,29 +9,29 @@ import { Plus } from "lucide-react";
 
 const faqData = [
   {
-    question: "What is Errly?",
+    question: "What is Errly and why should I use it?",
     answer:
-      "Errly is an error alerting service that instantly notifies you via SMS when your app encounters critical errors, so you can respond immediately.",
+      "Errly is an error alerting service that instantly notifies you via SMS when your app encounters critical errors. Use it to respond immediately to critical issues and minimize downtime.",
   },
   {
-    question: "How easy is it to integrate Errly?",
+    question: "How do I add Errly to my app? (Integration in under 2 minutes)",
     answer:
-      "Integration takes less than 5 minutes. Just add one line of code to your app, and you're good to go.",
+      "Integration takes less than 2 minutes. You can use our NPM SDK package or add a simple API call in your app\'s error handling logic. Check out our documentation for detailed guides!",
   },
   {
-    question: "Does Errly support my stack?",
+    question: "Which programming languages and frameworks work with Errly?",
     answer:
-      "Yes! Errly is language-agnostic and integrates easily via a simple REST API. Official SDKs coming soon.",
+      "Errly is language-agnostic and works with any language or framework. Integration is done via a simple REST API call. Official SDKs for popular languages are coming soon.",
   },
   {
-    question: "How does Errly prevent alert spam?",
+    question: "How does Errly keep me from getting spammed by the same error?",
     answer:
-      "Errly intelligently groups similar errors and uses rate-limiting to ensure alerts remain meaningful and actionable.",
+      "Errly intelligently groups similar errors based on stack traces and context, and uses rate-limiting to ensure you only receive alerts for new or significantly recurring issues, keeping your notifications meaningful.",
   },
   {
-    question: "Can I cancel anytime?",
+    question: "How do I manage who receives my SMS alerts and mute or resolve errors?",
     answer:
-      "Absolutely. There are no lock-ins or hidden conditions—you can easily cancel your subscription anytime.",
+      "Within your Errly project dashboard, you can configure which phone numbers receive alerts. You can also mute specific errors temporarily or mark them as resolved to stop receiving notifications for them.",
   },
 ];
 
