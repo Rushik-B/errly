@@ -12,13 +12,13 @@ import {
     DocumentDuplicateIcon // New Icon for Copy Full Message
 } from '@heroicons/react/24/outline';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-// Correct import for the style - use commonjs import for styles typically
+// Revert to CJS import for the style
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-import toast, { Toaster } from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast'; // Keep default import, use it directly
 import styles from './ErrorDetailDrawer.module.css';
 import { useAuth } from '../context/AuthContext.tsx';
-// Corrected relative path
-import { Button } from '../components/ui/button';
+// Corrected relative path with extension
+import { Button } from '../components/ui/button.tsx'; // Assuming .tsx, adjust if it's .ts
 
 // Import the mock data flag
 const USE_MOCK_DATA = typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_MOCK_DATA === 'true';
@@ -68,21 +68,22 @@ interface ErrorDetailDrawerProps {
 // Helper function for copying text (Fixed navigator type & toast calls)
 const copyToClipboard = (text: string | null | undefined, successMessage: string) => {
   if (!text) {
-    toast.error('Nothing to copy!');
+    toast.error('Nothing to copy!'); // Use toast.error if available, otherwise just toast()
     return;
   }
   // Check if running in a browser environment and clipboard API is available
+  // Add explicit check for clipboard API existence as type might be missing
   if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(text)
-        .then(() => toast.success(successMessage))
+        .then(() => toast.success(successMessage)) // Use toast.success if available
         .catch((err: Error) => { // Add Error type
             console.error('Failed to copy: ', err);
-            toast.error('Failed to copy!');
+            toast.error('Failed to copy!'); // Use toast.error if available
         });
   } else {
       // Provide feedback if clipboard is not available
       console.warn('Clipboard API not available.');
-      toast.error('Clipboard API not available in this environment.');
+      toast.error('Clipboard API not available in this environment.'); // Use toast.error if available
   }
 };
 
@@ -177,7 +178,7 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
         }));
       } catch (err) {
         console.error('[Drawer] Failed to fetch error details:', err);
-        toast.error('Could not load full error details.');
+        toast.error('Could not load full error details.'); // Use toast.error if available
       } finally {
         setIsLoading(false);
       }
@@ -188,17 +189,20 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
 
   // Prevent background scroll (Fixed document access)
   useEffect(() => {
+    // Added explicit check for document existence
     if (typeof document === 'undefined') return;
 
     const originalOverflow = document.body.style.overflow;
     if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
-      if (document.body.style.overflow === 'hidden') {
+      // Check document again before accessing body
+      if (typeof document !== 'undefined' && document.body.style.overflow === 'hidden') {
            document.body.style.overflow = originalOverflow;
       }
     }
     return () => {
+       // Check document again before accessing body in cleanup
        if (typeof document !== 'undefined' && document.body.style.overflow === 'hidden') {
           document.body.style.overflow = originalOverflow;
        }
@@ -211,6 +215,7 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
     if (typeof window === 'undefined') return;
 
     const handleEscape = (event: KeyboardEvent) => {
+      // Standard event.key should work, ensure TS lib is up-to-date in tsconfig
       if (event.key === 'Escape') {
         onClose();
       }
@@ -253,7 +258,7 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
 
   const stackTraceFull = (() => {
       if (!displayError.stack_trace) return 'N/A';
-      const lines = displayError.stack_trace.replace(/\\n/g, '\n').split('\n').map(l => l.trim()).filter(Boolean);
+      const lines = displayError.stack_trace.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length === 0) return 'N/A';
       return lines.join('\n');
   })();
@@ -299,7 +304,7 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
   // --- Event Handlers (Resolve, Mute - UPDATED) ---
   const handleResolve = async () => {
       if (!displayError.id || isUpdating || !session?.access_token) {
-        if(!session?.access_token) toast.error('Authentication session missing.');
+        if(!session?.access_token) toast.error('Authentication session missing.'); // Use toast.error if available
         return;
       }
       setIsUpdating(true);
@@ -317,11 +322,11 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
          );
          // On success, call optimistic update, notify, and close
          onResolve?.(displayError.id);
-         toast.success('Error marked as resolved!');
+         toast.success('Error marked as resolved!'); // Use toast.success if available
          onClose();
       } catch (err: any) {
          console.error('Resolve failed:', err);
-         toast.error(`Failed to resolve: ${err.message || 'Unknown error'}`);
+         toast.error(`Failed to resolve: ${err.message || 'Unknown error'}`); // Use toast.error if available
       } finally {
          setIsUpdating(false);
       }
@@ -329,7 +334,7 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
 
   const handleMute = async () => {
        if (!displayError.id || isUpdating || !session?.access_token) {
-         if(!session?.access_token) toast.error('Authentication session missing.');
+         if(!session?.access_token) toast.error('Authentication session missing.'); // Use toast.error if available
          return;
        }
        setIsUpdating(true);
@@ -349,11 +354,11 @@ const ErrorDetailDrawer: React.FC<ErrorDetailDrawerProps> = ({
           );
           // On success, call optimistic update, notify, and close
           onMute?.(displayError.id, muteUntil);
-          toast.success('Error muted for 24 hours!');
+          toast.success('Error muted for 24 hours!'); // Use toast.success if available
           onClose();
        } catch (err: any) {
           console.error('Mute failed:', err);
-          toast.error(`Failed to mute: ${err.message || 'Unknown error'}`);
+          toast.error(`Failed to mute: ${err.message || 'Unknown error'}`); // Use toast.error if available
        } finally {
           setIsUpdating(false);
        }
