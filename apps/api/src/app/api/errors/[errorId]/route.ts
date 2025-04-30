@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '../../../../lib/supabase/admin.ts';
-import { getUserFromToken } from '../../../../lib/authUtils.ts';
+import { supabaseAdmin } from '../../../../lib/supabase/admin';
+import { getUserFromToken } from '../../../../lib/authUtils';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
