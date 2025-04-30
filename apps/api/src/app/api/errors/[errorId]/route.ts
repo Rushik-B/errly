@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '../../../../lib/supabase/admin';
-import { getUserFromToken } from '../../../../lib/authUtils';
+import { supabaseAdmin } from '../../../../lib/supabase/admin.ts';
+import { getUserFromToken } from '../../../../lib/authUtils.ts';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
@@ -19,6 +19,12 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization', 
     'Access-Control-Allow-Credentials': 'true',
 };
+
+// Explicit OPTIONS handler for CORS preflight requests
+export async function OPTIONS(request: NextRequest) {
+  // Return Response with CORS headers for preflight check
+  return new NextResponse(null, { status: 200, headers: corsHeaders });
+}
 
 // Define schema for URL parameters
 const paramsSchema = z.object({
