@@ -8,47 +8,51 @@ import { motion } from 'framer-motion'
 /* ------------------------------------------------------------------ */
 const CARD_LIST = [
   {
-    key: "alerts",
-    title: "Instant Error Alerts",
-    desc: "Receive real-time SMS notifications whenever critical errors occur in your application.",
+    key: "setup",
+    title: "Quick Initialization",
+    desc: "Install the SDK, import, and initialize with your Project ID. Get set up in 15 seconds — Errly automatically captures errors right away.",
     body: (
       <div className="mt-5 text-sm text-white/60">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-          <span>Alert Sent!</span>
-        </div>
-        <span className="text-white/50 text-xs">SMS notification delivered to +1-XXX-XXX-XXXX.</span>
-      </div>
-    ),
-  },
-  {
-    key: "setup",
-    title: "Easy One-Line Setup",
-    desc: "Add Errly to your project instantly with just one line of code. Zero friction, instant protection.",
-    body: (
-        <div className="mt-5 text-sm text-white/60">
-         <span className="block text-xs text-white/50 mt-0.5">
-          Just import and initialize:
-        </span>
         <pre className="bg-white/5 p-2 rounded-lg text-xs text-blue-200 mt-2 mb-1 font-mono overflow-x-auto">
-{`import Errly from '@errly/sdk';
+{`// 1. npm install @errly/sdk
 
-Errly.init({ projectId: 'YOUR_PROJECT_ID' });`}
+// 2. Initialize in your app's entry point:
+import { setKey, patch } from '@errly/sdk';
+
+setKey('YOUR_PROJECT_ID'); // Find in Project Settings
+patch(); // Start capturing errors
+
+// That's it!`}
         </pre>
       </div>
     ),
   },
   {
-    key: "rate-limiting",
-    title: "Intelligent Rate Limiting",
-    desc: "Stay informed without getting spammed—Errly smartly filters duplicates, keeping alerts actionable.",
+    key: "alerts",
+    title: "Instant SMS Alerts",
+    desc: "If your app throws a critical error in production, Errly sends you a text within seconds. Even at 3AM.",
+    body: (
+      <div className="mt-5 text-sm text-white/60">
+        <div className="bg-blue-500/20 border border-blue-400/30 p-3 rounded-lg shadow-md">
+            <p className="font-semibold text-blue-300">❗ Errly Alert</p>
+            <p className="text-xs mt-1 text-white/80">TypeError at /checkout: Cannot read 'amount' of undefined</p>
+        </div>
+        {/* TODO: Simulate SMS pop-up bubble */}
+      </div>
+    ),
+  },
+  {
+    key: "dashboard",
+    title: "Insightful Debug Dashboard",
+    desc: "View clean error logs, stack traces, and metadata — all in one modern dashboard. No setup required.",
     body: (
        <div className="mt-5 text-sm text-white/60">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full"></span>
-          <span>Filtering Duplicates...</span>
+         <div className="flex items-center gap-2 mb-2">
+          <span className="inline-block w-2 h-2 bg-purple-500 rounded-full"></span>
+          <span>Dashboard Ready</span>
         </div>
-        <span className="text-white/50 text-xs">5 identical errors suppressed. 1 unique alert sent.</span>
+        <span className="text-white/50 text-xs">Error details, stack trace, and metadata available.</span>
+        {/* TODO: A small snippet of your beautiful dashboard UI. Highlight a row with stack trace + metadata. */}
       </div>
     ),
   },
@@ -122,22 +126,23 @@ export default function FeatureCards() {
       </div>
 
       {/* ── Dots ────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mt-0"> {/* Reduced margin-top as cards are higher now */} 
-        {CARD_LIST.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setActive(i)}
-            aria-label={`Show card ${i + 1}`}
-            className={`
-              w-5 h-2 rounded-full transition-all duration-200 outline-none focus:outline-none
-              ${active === i
-                ? 'bg-gradient-to-r from-sky-400 via-purple-400 to-white shadow-lg'
-                : 'bg-white/20 hover:bg-white/40' // Add hover effect to inactive dots
-              }
-            `}
-          />
-        ))}
-      </div>
+      <div className="flex items-center gap-2 mt-4"> {/* Added margin-top back to dots */}
+          {/* Dots (kept unchanged, just adjusted container) */}
+          {CARD_LIST.map((_, i) => (
+            <button
+              key={`dot-${i}`}
+              onClick={() => setActive(i)}
+              aria-label={`Show card ${i + 1}`}
+              className={`
+                w-5 h-2 rounded-full transition-all duration-200 outline-none focus:outline-none
+                ${active === i
+                  ? 'bg-gradient-to-r from-sky-400 via-purple-400 to-white shadow-lg'
+                  : 'bg-white/20 hover:bg-white/40' // Add hover effect to inactive dots
+                }
+              `}
+            />
+          ))}
+        </div>
     </div>
   )
 }
