@@ -41,9 +41,9 @@ import "react-datepicker/dist/react-datepicker.css";
 import Sparkline from '../../../components/ui/Sparkline.tsx';
 import LogVolumeChart from '../../../components/ui/LogVolumeChart.tsx';
 
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Card, CardContent } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button.tsx';
+import { Input } from '../../../components/ui/input.tsx';
+import { Card, CardContent } from '../../../components/ui/card.tsx';
 
 // --- Interfaces --- 
 interface Project {
@@ -202,7 +202,7 @@ const MOCK_PROJECT: Project = {
 // --- Generate Mock Data (Revised Strategy) ---
 const mockDataStartDate = subDays(new Date(), 30);
 const totalHours = 30 * 24;
-const mockDataPoints: { timestamp: string; errorCount: number; warnCount: number; infoCount: number; logCount: number }[] = [];
+const mockDataPoints: LogVolumeDataPoint[] = [];
 const generatedMockErrors: ApiError[] = [];
 
 // 1. Generate hourly volume data points first
@@ -223,7 +223,7 @@ for (let i = 0; i < totalHours; i++) {
   });
 
   // 2. Generate corresponding mock errors based on the counts for this hour
-  const createMockError = (level: 'error' | 'warn' | 'info' | 'log', index: number) => {
+  const createMockError = (level: 'error' | 'warn' | 'info' | 'log', index: number): ApiError => {
     // Select a random template message based on level
     let message = `Generic ${level} message ${index}`;
     let metadata: any = { generatedHour: timestampDate.getHours() };
@@ -247,6 +247,21 @@ for (let i = 0; i < totalHours; i++) {
             metadata = { jobId: `job_${index}` };
             break;
     }
+
+    // --- Generate Mock Trend Data ---
+    const trendData: { time: string; count: number }[] = [];
+    const trendHours = 24; // Generate trend for the last 24 hours relative to the error
+    let lastCount = Math.max(1, Math.floor(Math.random() * 10)); // Start with a base count
+
+    for (let h = 0; h < trendHours; h++) {
+      const trendTimestamp = subHours(timestampDate, h).toISOString();
+      // Simulate some fluctuation
+      const change = Math.floor(Math.random() * 5) - 2; // Change between -2 and +2
+      lastCount = Math.max(0, lastCount + change); // Ensure count doesn't go below 0
+      trendData.push({ time: trendTimestamp, count: lastCount });
+    }
+    trendData.reverse(); // Ensure timestamps are ascending
+
     return {
         id: `mock-${level}-${i}-${index}`,
         message: `${message} (${index + 1})`,
@@ -255,6 +270,10 @@ for (let i = 0; i < totalHours; i++) {
         metadata,
         stack_trace: stackTrace,
         count: Math.floor(1 + Math.random() * 20), // Give it a random count > 0
+        trend: trendData, // <-- Add the generated trend data
+        state: 'active', // Add default state
+        muted_until: null, // Add default muted_until
+        project_id: MOCK_PROJECT.id // Add required project_id
     };
   };
 
@@ -1057,7 +1076,7 @@ export default function ProjectErrorsPage() {
              <div className="space-y-4">
                  <div>
                    <label className="block text-sm font-medium text-gray-400 mb-1">Start Date</label>
-                   {/* Re-enabled DatePicker with dark theme styling */}
+                   {/* Ensure DatePicker is usable as JSX component */}
                    <DatePicker
                      selected={tempStartDate}
                      onChange={(date: Date | null) => setTempStartDate(date)}
@@ -1071,7 +1090,7 @@ export default function ProjectErrorsPage() {
                  </div>
                  <div>
                    <label className="block text-sm font-medium text-gray-400 mb-1">End Date</label>
-                   {/* Re-enabled DatePicker with dark theme styling */}
+                   {/* Ensure DatePicker is usable as JSX component */}
                    <DatePicker
                      selected={tempEndDate}
                      onChange={(date: Date | null) => setTempEndDate(date)}

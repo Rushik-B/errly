@@ -96,11 +96,11 @@ export default function FeatureCards() {
               onMouseEnter={() => setActive(idx)} // Activate on hover
               className={`
                 w-[340px] h-[390px] p-8 pt-8 rounded-[34px] overflow-hidden cursor-pointer 
-                bg-white/[0.04] border border-white/10 // Consistent border and background
+                border border-white/10 backdrop-blur-md
               `}
               style={{
-                // Keep distinct background gradients if needed, or simplify
-                background: 'linear-gradient(120deg,rgba(20,24,42,.85)0%,rgba(70,74,93,.38)100%)', // Consistent background
+                // Increased alpha values for a glassier look, less transparent
+                background: 'linear-gradient(120deg,rgba(20,24,42,.6)0%,rgba(70,74,93,.4)100%)',
               }}
               // Animate properties based on active state
               animate={{
