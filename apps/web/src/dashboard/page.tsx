@@ -51,7 +51,7 @@ async function fetchWithErrorHandling(url: string, options?: RequestInit, token?
     try {
       // Try to parse the error response body as JSON
       errorPayload = await response.json();
-    } catch (jsonError) {
+    } catch (jsonError: any) {
       // If JSON parsing fails, use the status text
       console.warn('Failed to parse error response as JSON:', jsonError);
       errorPayload.error = errorPayload.error + `: ${response.statusText}`;
@@ -122,6 +122,8 @@ export default function Dashboard() {
       return;
     }
 
+    console.log('Dashboard - Session object for fetching projects:', JSON.stringify(session, null, 2));
+
     const fetchProjects = async () => {
       setLoadingProjects(true);
       setError(null);
@@ -140,7 +142,13 @@ export default function Dashboard() {
       }
     };
 
-    fetchProjects();
+    if (session && session.access_token) { 
+      fetchProjects();
+    } else if (session) {
+      console.warn('Dashboard - Session exists but access_token is missing. Not fetching projects yet.');
+    } else {
+      console.warn('Dashboard - Session is null. Not fetching projects.');
+    }
   }, [loadingAuth, session]);
 
   const handleCreateProject = async (e: FormEvent) => {
@@ -188,7 +196,7 @@ export default function Dashboard() {
     navigator.clipboard.writeText(key).then(() => {
       setCopiedKeyId(projectId);
       setTimeout(() => setCopiedKeyId(null), 2000);
-    }).catch(err => {
+    }).catch((err: any) => {
       console.error('Failed to copy API key:', err);
       setError('Failed to copy API key.');
     });
