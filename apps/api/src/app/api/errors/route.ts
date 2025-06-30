@@ -20,6 +20,7 @@ const sdkCorsHeaders = {
 };
 
 // Restore OPTIONS handler - checks requested method
+//hello2
 export async function OPTIONS(request: NextRequest) {
   const requestMethod = request.headers.get('access-control-request-method');
   console.log('[API Errors OPTIONS] Requested Method:', requestMethod); 
@@ -46,7 +47,19 @@ const errorSchema = z.object({
   message: z.string().min(1, { message: "Message cannot be empty" }),
   stackTrace: z.string().optional(), // Optional string
   metadata: z.record(z.unknown()).optional(), // Optional object with unknown values
+  level: z.string().optional().default('error'), // Add level validation (optional, default to 'error')
 });
+
+// Define the type for the RPC response rows
+interface AggregatedErrorGroupV2 { // Renamed interface for clarity
+  out_message: string;         // Use out_ prefix matching RETURNS TABLE
+  out_level: string;
+  out_count: number;
+  out_last_seen: string;
+  out_representative_id: string;
+  out_trend: { time: string; count: number }[];
+  out_total_groups: number;
+}
 
 // GET /api/errors?projectId=...[&page=1&limit=20] - List errors for a specific project owned by the user
 export async function GET(request: NextRequest) {
@@ -129,48 +142,86 @@ export async function GET(request: NextRequest) {
   }
   // --- End Validate Project Ownership ---
 
-  // --- Fetch Errors with Pagination ---
-  const page = pageParam ? parseInt(pageParam, 10) : 1
-  const limit = limitParam ? parseInt(limitParam, 10) : 20 // Default limit
-  const offset = (page - 1) * limit
+  // --- Fetch Aggregated Errors using RPC ---
+  const page = pageParam ? parseInt(pageParam, 10) : 1;
+  const limit = limitParam ? parseInt(limitParam, 10) : 20; // Default limit
 
   if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
-    // Add back explicit dashboard headers
     return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400, headers: dashboardCorsHeaders });
   }
 
-  try {
-    const { data: errors, error: errorsError, count } = await supabaseAdmin
-      .from('errors')
-      .select('*', { count: 'exact' }) // Fetch all error fields and the total count
-      .eq('project_id', projectId)
-      .order('received_at', { ascending: false }) // Order by most recent
-      .range(offset, offset + limit - 1) // Apply pagination range
+  // Extract date range parameters
+  const startDateParam = searchParams.get('startDate');
+  const endDateParam = searchParams.get('endDate');
 
-    if (errorsError) {
-      console.error('Error fetching errors:', errorsError.message);
-      // Add back explicit dashboard headers
-      return NextResponse.json({ error: 'Failed to fetch errors', details: errorsError.message }, { status: 500, headers: dashboardCorsHeaders });
+  // Prepare RPC parameters
+  const rpcParams: { 
+    project_id_param: string;
+    start_date_param?: string;
+    end_date_param?: string;
+    page_param: number;
+    limit_param: number;
+  } = {
+    project_id_param: projectId,
+    page_param: page,
+    limit_param: limit,
+  };
+
+  // Add date parameters if they are valid dates
+  if (startDateParam) {
+    const startDate = new Date(startDateParam);
+    if (!isNaN(startDate.getTime())) {
+      rpcParams.start_date_param = startDate.toISOString();
+    }
+  }
+  if (endDateParam) {
+    const endDate = new Date(endDateParam);
+    if (!isNaN(endDate.getTime())) {
+      rpcParams.end_date_param = endDate.toISOString();
+    }
+  }
+
+  try {
+    // Call the NEW RPC function name
+    const { data: aggregatedErrors, error: rpcError } = await supabaseAdmin
+      .rpc('get_aggregated_errors_trend_v1', rpcParams); // <-- Changed function name
+
+    if (rpcError) {
+      console.error('Error calling get_aggregated_errors_trend_v1 RPC:', rpcError.message);
+      return NextResponse.json({ error: 'Failed to fetch aggregated errors', details: rpcError.message }, { status: 500, headers: dashboardCorsHeaders });
     }
 
-    // Add back explicit dashboard headers for success
+    // Determine the total count of unique groups from the new output column name
+    const totalUniqueGroups = aggregatedErrors && aggregatedErrors.length > 0 ? aggregatedErrors[0].out_total_groups : 0;
+
+    // Map the RPC response to the expected API response structure using new output column names
+    const mappedData = (aggregatedErrors ?? []).map((group: AggregatedErrorGroupV2) => ({ // Use new interface
+        id: group.out_representative_id, // Use out_ prefix
+        message: group.out_message,       // Use out_ prefix
+        level: group.out_level,           // Use out_ prefix
+        received_at: group.out_last_seen, // Use out_ prefix
+        count: group.out_count,           // Use out_ prefix
+        trend: group.out_trend,           // Use out_ prefix
+        stack_trace: null,
+        metadata: null,
+    }));
+
     return NextResponse.json({
-      data: errors ?? [],
-      totalCount: count ?? 0,
+      data: mappedData, // Return the mapped aggregated data
+      totalCount: totalUniqueGroups, // Return the total count of unique groups
       page,
       limit,
     }, { headers: dashboardCorsHeaders });
 
   } catch (err: unknown) {
-    let errorMessage = 'An unexpected error occurred while fetching errors';
+    let errorMessage = 'An unexpected error occurred while fetching aggregated errors';
      if (err instanceof Error) {
         errorMessage = err.message;
     }
-    console.error('Unexpected error fetching errors:', errorMessage);
-    // Add back explicit dashboard headers
+    console.error('Unexpected error fetching aggregated errors:', errorMessage);
     return NextResponse.json({ error: errorMessage }, { status: 500, headers: dashboardCorsHeaders });
   }
-  // --- End Fetch Errors with Pagination ---
+  // --- End Fetch Aggregated Errors ---
 }
 
 // POST /api/errors - Record a new error (using API Key authentication)
@@ -201,7 +252,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { apiKey, message, stackTrace, metadata } = validationResult.data;
+    const { apiKey, message, stackTrace, metadata, level } = validationResult.data;
 
     // 2. Validate the API Key
     const { data: projectData, error: projectError } = await supabaseServiceClient
@@ -230,6 +281,7 @@ export async function POST(request: Request) {
           message: message,
           stack_trace: stackTrace,
           metadata: metadata,
+          level: level,
         },
       ])
       .select();

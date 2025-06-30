@@ -8,6 +8,18 @@ export default {
 		"./app/**/*.{ts,tsx}",
 		"./src/**/*.{ts,tsx}",
 	],
+	safelist: [
+		'border-l-red-500',
+		'border-l-yellow-500',
+		'border-l-blue-500',
+		'border-l-purple-500',
+		'border-l-gray-500',
+		'hover:bg-red-900/20',
+		'hover:bg-yellow-900/20',
+		'hover:bg-blue-900/20',
+		'hover:bg-purple-900/20',
+		'hover:bg-gray-700/30'
+	],
 	prefix: "",
 	theme: {
 		container: {

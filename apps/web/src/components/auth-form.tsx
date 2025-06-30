@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { getSupabaseClient } from '../lib/supabaseClient'
+import { getSupabaseClient } from '../lib/supabaseClient.ts'
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
 import type { Value } from 'react-phone-number-input'
 import {
@@ -44,7 +44,7 @@ const Field = React.memo(({
         id={id}
         type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange((e.target as HTMLInputElement).value)}
         placeholder={label}
         className="input-field"
         required
@@ -203,7 +203,7 @@ const AuthForm: React.FC = () => {
               id="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPassword((e.target as HTMLInputElement).value)}
               placeholder="••••••••"
               className="input-field"
               required

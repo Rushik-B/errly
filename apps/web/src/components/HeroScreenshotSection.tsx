@@ -33,7 +33,7 @@ export default function HeroScreenshotSection() {
       <div className="flex flex-col items-center justify-center relative z-20 pt-40 pb-32 md:pt-48 md:pb-44">
         {/* Headline */}
         <h1 className="text-[2.4rem] md:text-6xl lg:text-7xl font-bold leading-tight text-white text-center mb-3 transition-none">
-          Wake Up Before Your Users Do
+          Plug it in. Get a text. Done.
         </h1>
         {/* Subtitle */}
         <div className="text-white/70 text-lg md:text-2xl mt-3 mb-9 text-center font-normal max-w-2xl mx-auto">
